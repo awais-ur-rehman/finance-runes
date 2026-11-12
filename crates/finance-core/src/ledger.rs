@@ -102,7 +102,7 @@ impl MonthSummary {
 }
 
 /// The record of everything that happened, and the views derived from it.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Ledger {
     currency: Currency,
     accounts: BTreeMap<AccountId, Account>,

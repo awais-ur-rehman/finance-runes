@@ -2,7 +2,7 @@
 
 A local-first personal finance manager — accounts, transactions, budgets and reports — built as a native desktop app in Rust on [Rune](https://github.com/anomalyco/rune).
 
-> **Status: early implementation.** Requirements and architecture decisions are accepted (see `docs/`). The workspace exists and `finance-core` implements money, accounts, categories, transactions and the ledger; storage, import and UI are next.
+> **Status: early implementation.** Requirements and architecture decisions are accepted (see `docs/`). The workspace exists: `finance-core` implements money, accounts, categories, transactions, budgets and the ledger, and `finance-storage` persists them in SQLite. Import and UI are next.
 
 ---
 
@@ -45,7 +45,7 @@ The accepted scope lives in [the requirements documents](docs/requirements/); th
 | --- | --- | --- |
 | Language | Rust 1.99.1 | Pinned in [`rust-toolchain.toml`](rust-toolchain.toml) |
 | UI | [Rune](https://github.com/anomalyco/rune) + `rune-kit` | Pre-release; pinned to a `dev` rev. Never `dev` HEAD floating. |
-| Storage | TBD — see [ADR-0004](docs/architecture/decisions/0004-local-first-storage.md) | Local-first, portable, migratable |
+| Storage | SQLite (bundled via `rusqlite`) — see [ADR-0004](docs/architecture/decisions/0004-local-first-storage.md) | One file per dataset, WAL, forward-only migrations |
 | Platform | macOS, Windows, Linux | Rune renders natively via wgpu/winit |
 
 Rune is pre-release. Apps pin a rev of `dev`; `dev` is never rewritten, so a pinned rev keeps building. The rev is recorded in the workspace manifest when the first crate lands.
@@ -118,7 +118,7 @@ Start at [`docs/README.md`](docs/README.md) for the full index. The short versio
 | 1 | Requirement gathering → filled `docs/requirements/` | ✅ done (5 sessions) |
 | 2 | Architecture sign-off (ADR-0004), workspace created | ✅ done |
 | 3 | `finance-core`: money, accounts, transactions, categories, budgets | ✅ done |
-| 4 | Storage adapter, migrations, backup/restore | ⬜ next |
+| 4 | Storage adapter, migrations, backup/restore | 🔄 in progress — schema v1, migrations and round-trip done; backup/restore next |
 | 5 | CSV import pipeline and review screen | ⬜ |
 | 6 | Rune UI: entry, register, month view | ⬜ |
 | 7 | Insights engine and month-end summary | ⬜ |

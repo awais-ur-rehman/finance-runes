@@ -1,8 +1,15 @@
 # finance-storage
 
-**Status:** planned — no code yet
+**Status:** in progress — schema v1, migrations, round-trip and soft delete done; backup/restore next
 
 Persistence, and nothing else. Maps domain objects to rows and back, applies migrations, produces consistent backups.
+
+## What exists
+
+- `Store::open` / `open_in_memory` — opens or creates a dataset, refuses a newer schema version, fixes the currency at open time.
+- Schema v1 — `schema_migrations`, `metadata`, `accounts`, `categories`, `transactions`, `postings`, `budgets`, all `STRICT`, with a running balance of migrations applied one transaction at a time.
+- `load` / `save` — the whole ledger in and out; a save replaces the live dataset inside one transaction and leaves soft-deleted rows alone.
+- `soft_delete_transaction` / `restore_transaction` / `deleted_transactions` — the undo trail (FR-014, Q-34).
 
 ## Owns
 

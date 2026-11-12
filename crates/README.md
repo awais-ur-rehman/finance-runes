@@ -5,7 +5,7 @@ The Rust workspace, split so that a change in one concern cannot silently break 
 | Crate | Purpose | Status |
 | --- | --- | --- |
 | [`finance-core`](finance-core/README.md) | Domain model and pure calculations. The source of truth for rules. | Planned |
-| [`finance-storage`](finance-storage/README.md) | Persistence, migrations, backup, integrity. | Planned |
+| [`finance-storage`](finance-storage/README.md) | Persistence, migrations, backup, integrity. | In progress |
 | [`finance-ui`](finance-ui/README.md) | Rune views, theming, input, formatting. | Planned |
 | `finance-app` | Binary / composition root: wires adapters, opens the window. | Planned |
 
