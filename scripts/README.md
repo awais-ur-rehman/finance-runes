@@ -2,11 +2,17 @@
 
 Development and CI helpers. Nothing here ships in the app.
 
+## Available
+
+| Script | Purpose |
+| --- | --- |
+| `check.sh` | Format check, clippy and tests in one command — the same gate CI runs |
+
 ## Planned
 
 | Script | Purpose |
 | --- | --- |
-| `check.ps1` / `check.sh` | Format, clippy and test in one command — the same commands CI runs |
+| `check.ps1` | The same gate for a native Windows shell |
 | `file-size` | Fail when a Rust file exceeds 800 non-test lines (Rune's rule, adopted) |
 | `deps-check` | Verify `finance-core` has no I/O or UI dependencies |
 | `gen-fixtures` | Regenerate synthetic import fixtures deterministically |

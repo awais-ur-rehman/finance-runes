@@ -105,3 +105,33 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 git diff --cached          # read it, end to end
 ```
+
+Or `scripts/check.sh`, which runs the first three.
+
+### When the host blocks compiled binaries
+
+On a Windows machine with **Smart App Control** enabled, every freshly compiled
+binary is refused — build scripts, test binaries and `rustfmt` all fail with
+`An Application Control policy has blocked this file` (os error 4551), in any
+target directory. That is a machine policy, not a project problem, and it cannot
+be worked around from inside the build.
+
+Run the same gate in a container instead, from the repository root:
+
+```sh
+docker run --rm \
+  -v "$PWD:/work" -w /work \
+  -v finance-target:/target -e CARGO_TARGET_DIR=/target \
+  finance-rust:1.99.1 sh scripts/check.sh
+```
+
+The image is `rust:1.99.1-slim` plus the two missing components:
+
+```dockerfile
+FROM rust:1.99.1-slim
+RUN rustup component add rustfmt clippy
+```
+
+A container run proves the code on Linux only. Windows-specific behaviour still
+needs a native run, so once the app has an I/O or UI layer, a container pass is
+necessary but not sufficient.
