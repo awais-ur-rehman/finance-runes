@@ -2,7 +2,7 @@
 
 A local-first personal finance manager — accounts, transactions, budgets and reports — built as a native desktop app in Rust on [Rune](https://github.com/anomalyco/rune).
 
-> **Status: requirements complete (5 of 5 sessions).** The accepted requirement set and architecture decisions are in `docs/`. Architecture sign-off and the workspace come next; no application code yet.
+> **Status: early implementation.** Requirements and architecture decisions are accepted (see `docs/`). The workspace exists and `finance-core` implements money, accounts, categories, transactions and the ledger; storage, import and UI are next.
 
 ---
 
@@ -116,8 +116,8 @@ Start at [`docs/README.md`](docs/README.md) for the full index. The short versio
 | --- | --- | --- |
 | 0 | Repository scaffold, conventions, docs skeleton | ✅ done |
 | 1 | Requirement gathering → filled `docs/requirements/` | ✅ done (5 sessions) |
-| 2 | Architecture sign-off (ADR-0004), workspace created | ⬜ next |
-| 3 | `finance-core`: money, accounts, transactions, categories, budgets | ⬜ |
+| 2 | Architecture sign-off (ADR-0004), workspace created | ✅ done |
+| 3 | `finance-core`: money, accounts, transactions, categories, budgets | 🔄 in progress — money, accounts, categories, transactions and ledger done |
 | 4 | Storage adapter, migrations, backup/restore | ⬜ |
 | 5 | CSV import pipeline and review screen | ⬜ |
 | 6 | Rune UI: entry, register, month view | ⬜ |

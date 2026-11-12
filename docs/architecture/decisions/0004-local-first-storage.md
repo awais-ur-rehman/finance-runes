@@ -1,6 +1,6 @@
 # ADR-0004 — Local-first storage in a single SQLite file
 
-**Status:** proposed
+**Status:** accepted (2026-11-12)
 **Date:** 2026-11-12
 **Deciders:** project owner
 **Supersedes:** —
