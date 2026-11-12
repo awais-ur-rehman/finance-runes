@@ -1,0 +1,85 @@
+# ---------------------------------------------------------------------------
+# Rust / Cargo
+# ---------------------------------------------------------------------------
+# Cargo.lock is committed: this is an application, not a library.
+/target/
+**/*.rs.bk
+*.pdb
+*.profraw
+*.profdata
+perf.data*
+flamegraph.svg
+
+# ---------------------------------------------------------------------------
+# Personal financial data — never commit, never stage, never push
+# ---------------------------------------------------------------------------
+# Local databases and their sidecars
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.duckdb
+
+# Real bank statements and exports (fixtures must be anonymised and synthetic)
+*.ofx
+*.qif
+*.qfx
+*.pdf
+!assets/fixtures/**/*.pdf
+
+# App working directories
+/data/
+/exports/
+/backups/
+/attachments/
+
+# ---------------------------------------------------------------------------
+# Secrets and machine-local configuration
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+*.local.toml
+
+# ---------------------------------------------------------------------------
+# Build and test artefacts
+# ---------------------------------------------------------------------------
+/artifacts/
+/snapshots/actual/
+*.snap.new
+coverage/
+lcov.info
+tarpaulin-report.*
+
+# ---------------------------------------------------------------------------
+# Editors and OS
+# ---------------------------------------------------------------------------
+.idea/
+# Ignore the folder's contents, not the folder, so the shared files below can be re-included.
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.iml
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+desktop.ini
+*.swp
+*.swo
+
+# ---------------------------------------------------------------------------
+# Logs and traces
+# ---------------------------------------------------------------------------
+*.log
+/logs/
+rune-perf*
+*.trace.json

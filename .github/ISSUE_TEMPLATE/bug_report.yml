@@ -1,0 +1,73 @@
+name: Bug report
+description: Something behaves incorrectly, crashes, or loses data.
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not attach your database, real bank statements, account numbers or screenshots showing real balances.**
+        Reproduce with synthetic data instead. Security issues go through SECURITY.md, not here.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The observed behaviour, including the exact error message if there is one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: data-impact
+    attributes:
+      label: Does this touch stored data?
+      description: Anything involving balances, transactions, imports, migrations or backups.
+      options:
+        - "No — display or interaction only"
+        - "Yes — wrong values shown but data looks intact"
+        - "Yes — data may be written incorrectly"
+        - "Yes — data loss or corruption suspected"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      placeholder: v0.1.0 or a commit SHA
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11 24H2, macOS 15.2, Ubuntu 24.04
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Logs with paths and names redacted, related issues, whether it reproduces after a restart.
+    validations:
+      required: false

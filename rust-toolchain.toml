@@ -1,0 +1,6 @@
+# Matches the toolchain Rune pins (https://github.com/anomalyco/rune/blob/dev/rust-toolchain.toml).
+# rustup installs this automatically on first `cargo` invocation in this directory.
+[toolchain]
+channel = "1.99.1"
+components = ["clippy", "rustfmt"]
+profile = "minimal"

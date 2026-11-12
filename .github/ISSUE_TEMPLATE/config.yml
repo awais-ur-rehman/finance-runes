@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Read the project brief first
+    url: https://github.com/anomalyco/rune
+    about: The brief, requirements and open questions explain the current phase. Most "how should this work?" questions belong in docs/requirements/open-questions.md.

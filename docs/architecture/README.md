@@ -1,0 +1,124 @@
+# Architecture
+
+**Status:** proposal — depends on Q-01…Q-04 in [open questions](../requirements/open-questions.md)
+**Last updated:** 2026-11-12
+
+## Shape
+
+Hexagonal, with the domain at the centre and everything else pluggable:
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│                        finance-ui (Rune)                     │
+│   views · theming · input · formatting · view models         │
+└───────────────────────────┬──────────────────────────────────┘
+                            │ commands / queries (plain data)
+┌───────────────────────────▼──────────────────────────────────┐
+│                      application layer                       │
+│   use cases · transaction boundaries · undo · validation     │
+└───────────────┬──────────────────────────────┬───────────────┘
+                │ ports (traits)               │ ports (traits)
+┌───────────────▼────────────┐   ┌─────────────▼───────────────┐
+│     finance-storage        │   │   importers, clock, ids     │
+│  SQLite · migrations       │   │   CSV/OFX/QIF · system      │
+└────────────────────────────┘   └─────────────────────────────┘
+                │
+┌───────────────▼──────────────────────────────────────────────┐
+│                      finance-core (domain)                   │
+│  Money · Currency · Account · Transaction · Posting ·        │
+│  Category · Budget · Ledger · invariants · pure calculations │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Dependency rule:** arrows point inward only. `finance-core` depends on nothing but `std` (plus `serde`/`rust_decimal`-class primitives if unavoidable, each justified by an ADR). No crate may depend on `finance-ui`.
+
+## Why this shape
+
+- **The domain is the product.** Balances, splits and budgets are where bugs cost trust. They live in a crate that can be tested in milliseconds with no database and no window.
+- **Rune is pre-release.** If the UI framework churns, only `finance-ui` changes. That is the whole reason for the boundary.
+- **Storage is a detail.** SQLite today; if a better engine appears, only the adapter changes. Reports stay as domain queries.
+- **Time and identity are injected.** A ledger that calls `Utc::now()` internally cannot be tested deterministically. Clocks and ID generators are ports.
+
+## Crates
+
+| Crate | Responsibility | May depend on | Must never |
+| --- | --- | --- | --- |
+| `finance-core` | Money, ledger, accounts, categories, budgets, invariants, pure report queries | `std` only (exceptions need an ADR) | I/O, UI, clock, randomness, logging |
+| `finance-storage` | Persistence, migrations, backup, integrity checks | `finance-core`, a DB driver | Contain business rules |
+| `finance-ui` | Rune views, view models, theming, input, formatting | `finance-core`, application layer, `rune`, `rune-kit` | Own business logic or touch files |
+| `finance-app` (bin) | Composition root: wires adapters, owns the window, loads config | everything | Contain domain rules |
+
+The application layer (use cases) may start as a module inside `finance-core` or a thin `finance-app`-owned module. Split it into its own crate only when it earns it — see [ADR-0002](decisions/0002-rust-and-rune.md).
+
+## Core model (proposed)
+
+```rust
+// Illustrative only — no code exists yet.
+struct Money { minor: i64, currency: Currency }      // never f64
+struct Account { id, name, kind: Asset | Liability, currency }
+struct Transaction { id, date, payee, note, postings: NonEmpty<Posting>, state }
+struct Posting { account: AccountId, amount: Money, category: Option<CategoryId> }
+```
+
+Invariants that the type system or constructors enforce:
+
+1. A transaction's postings sum to zero in a single currency (double-entry), or a transaction has exactly one posting (single-entry), never a half-transfer.
+2. A split's parts sum exactly to the transaction total.
+3. A transfer's two postings reference different accounts and the same amount.
+4. A posting's currency equals its account's currency.
+5. Deleting an account with history is impossible; archive instead.
+
+## Data flow
+
+- **Reads** are queries: `balance(account, as_of)`, `cash_flow(period)`, `budget_status(period)`. Cheap, pure, testable.
+- **Writes** are commands: `record_transaction`, `import_statement`, `reconcile`. A command validates against domain invariants, then persists through a repository port inside one storage transaction.
+- **The UI never mutates state directly.** It sends a command and re-reads a projection, so every change has one path and one place to log or undo.
+- **Balances are projections.** The ledger is truth; balances are computed or cached with an invalidation rule. A cached balance is a performance detail, never the source of truth.
+
+## Cross-cutting decisions
+
+| Concern | Approach |
+| --- | --- |
+| Errors | `thiserror` in the domain with typed variants; `anyhow` only at the binary boundary. No `unwrap`/`expect` outside tests. |
+| IDs | Newtype UUIDs or ULIDs generated by an injected generator; ULIDs if insertion locality matters. |
+| Time | `Clock` port; domain takes dates, never reads the system clock. Dates are `time::Date`-style, not naive timestamps. |
+| Money | Integer minor units + currency (ADR-0003). Parsing/formatting at the edges only. |
+| Serialisation | Explicit versioned schema for export; never `serde` defaults silently changing a stored format. |
+| Logging | Structured, local, redacted by construction. No user amounts or payees in logs by default. |
+| Concurrency | UI thread owns no I/O. Long work (import, backup, index) runs off-thread and reports progress. |
+| Feature flags | Compile-time only where a platform genuinely differs; no runtime flag soup. |
+
+## Folder layout inside a crate
+
+```text
+crates/finance-core/
+├── src/
+│   ├── lib.rs            # mod + pub use, one per line, sorted
+│   ├── money/            # money.rs, currency.rs, rounding.rs, money_tests.rs
+│   ├── ledger/           # transaction.rs, posting.rs, balance.rs, invariants.rs
+│   ├── budget/
+│   └── report/
+└── tests/                # integration tests across modules
+```
+
+Rules: a folder once three sibling files share a prefix; tests in a sibling `tests.rs`; no file over 800 non-test lines.
+
+## Decisions
+
+Recorded as ADRs in [`decisions/`](decisions/). Accepted decisions are immutable; supersede, don't edit.
+
+| ADR | Decision | Status |
+| --- | --- | --- |
+| [0001](decisions/0001-record-architecture-decisions.md) | Record architecture decisions | Accepted |
+| [0002](decisions/0002-rust-and-rune.md) | Rust + Rune, thin UI layer | Accepted |
+| [0003](decisions/0003-money-and-currency.md) | Integer minor units, no floats | Proposed |
+| [0004](decisions/0004-local-first-storage.md) | Local-first, single file, SQLite | Proposed |
+| [0005](decisions/0005-ledger-model.md) | Double-entry ledger behind a simple UI | Proposed |
+
+## Still to design
+
+- Undo/redo model (command log vs. inverse commands).
+- Import pipeline stages and where a row can fail without killing the batch.
+- Attachment storage and content hashing.
+- Migration tooling and how historical schemas are kept for tests.
+- Packaging and update story.

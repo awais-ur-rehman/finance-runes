@@ -1,0 +1,68 @@
+name: Feature request
+description: Propose a capability or a change in behaviour.
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We are in requirement gathering. Strong proposals describe a *problem*, not just a solution —
+        and they say how we would know it worked.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What can't you do today, or what is painful? Who hits this, and how often?
+      placeholder: When I reconcile a month I have to ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+      description: What should the app do? Describe the outcome, not the implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: How we'd know it works
+      description: Concrete acceptance criteria. Given/When/Then is ideal.
+      placeholder: |
+        Given a checking account with 3 unreconciled transactions
+        When I mark the statement end balance
+        Then the app shows a difference of 0.00 and offers to lock the period
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Accounts and balances
+        - Transactions and register
+        - Transfers and reconciliation
+        - Import (CSV/OFX/QIF)
+        - Categories and rules
+        - Budgets
+        - Reports and charts
+        - Multi-currency
+        - Data portability and backup
+        - UI, theming and accessibility
+        - Performance
+        - Packaging and updates
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other apps that solve this, workarounds you use today, and why they fall short.
+    validations:
+      required: false
