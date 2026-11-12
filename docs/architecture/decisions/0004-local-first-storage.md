@@ -52,5 +52,7 @@ Rules:
 
 - [ ] Benchmark WAL + `synchronous` settings against NFR-010/NFR-014.
 - [x] Write the schema-version and migration harness before the first table.
+- [x] Back up with `VACUUM INTO`, keeping ten, and validate a restore before replacing anything.
 - [ ] Add a crash-injection test that kills the process during a write loop. The rollback path is covered by a competing-writer test; a real kill is still missing.
-- [ ] Document the on-disk layout in `docs/engineering/` so a user can recover data by hand.
+- [x] Document the on-disk layout in the storage README so a user can recover data by hand.
+- [ ] Take the pre-migration backup (FR-084) once a second schema version exists to test it against.
