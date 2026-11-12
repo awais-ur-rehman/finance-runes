@@ -44,6 +44,7 @@ Hexagonal, with the domain at the centre and everything else pluggable:
 | Crate | Responsibility | May depend on | Must never |
 | --- | --- | --- | --- |
 | `finance-core` | Money, ledger, accounts, categories, budgets, invariants, pure report queries | `std` only (exceptions need an ADR) | I/O, UI, clock, randomness, logging |
+| `finance-import` | Parse bank exports into rows: header location, balance continuity, duplicates, merchant and transfer hints | `finance-core`, a CSV reader | Touch the filesystem, read the clock, or write to storage |
 | `finance-storage` | Persistence, migrations, backup, integrity checks | `finance-core`, a DB driver | Contain business rules |
 | `finance-ui` | Rune views, view models, theming, input, formatting | `finance-core`, application layer, `rune`, `rune-kit` | Own business logic or touch files |
 | `finance-app` (bin) | Composition root: wires adapters, owns the window, loads config | everything | Contain domain rules |
@@ -119,7 +120,6 @@ Recorded as ADRs in [`decisions/`](decisions/). Accepted decisions are immutable
 ## Still to design
 
 - Undo/redo model (command log vs. inverse commands).
-- Import pipeline stages and where a row can fail without killing the batch.
 - Attachment storage and content hashing.
 - Migration tooling and how historical schemas are kept for tests.
 - Packaging and update story.

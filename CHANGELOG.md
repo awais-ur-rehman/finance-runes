@@ -15,7 +15,7 @@ Entries are written for the person using the app, not for the person who wrote t
 
 ### Notes
 
-- No application code yet. Requirement gathering is the next milestone; see [`docs/requirements/open-questions.md`](docs/requirements/open-questions.md).
+- No UI yet. The domain, storage and import crates are in place; see the [roadmap](README.md#roadmap).
 
 <!--
 ## [0.1.0] - YYYY-MM-DD

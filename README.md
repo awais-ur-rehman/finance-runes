@@ -2,7 +2,7 @@
 
 A local-first personal finance manager — accounts, transactions, budgets and reports — built as a native desktop app in Rust on [Rune](https://github.com/anomalyco/rune).
 
-> **Status: early implementation.** Requirements and architecture decisions are accepted (see `docs/`). The workspace exists: `finance-core` implements money, accounts, categories, transactions, budgets and the ledger, and `finance-storage` persists them in SQLite. Import and UI are next.
+> **Status: early implementation.** Requirements and architecture decisions are accepted (see `docs/`). The workspace exists: `finance-core` implements money, accounts, categories, transactions, budgets and the ledger, `finance-storage` persists them in SQLite, and `finance-import` reads a bank statement CSV. The UI is next.
 
 ---
 
@@ -60,8 +60,9 @@ Rune is pre-release. Apps pin a rev of `dev`; `dev` is never rewritten, so a pin
 │   ├── architecture/         # Layering, boundaries, ADRs
 │   ├── engineering/          # Coding standards, testing, git workflow, security
 │   └── design/               # UI principles and Rune-specific guidance
-├── crates/                   # Rust workspace members (empty until requirements close)
+├── crates/                   # Rust workspace members
 │   ├── finance-core/         # Domain: money, ledger, budgets. No I/O, no UI.
+│   ├── finance-import/       # CSV statements: rows, balance checks, hints. No I/O.
 │   ├── finance-storage/      # Persistence adapters behind core traits
 │   └── finance-ui/           # Rune views, theming, input handling
 ├── assets/                   # Icons, fonts, sample (anonymised) fixtures
@@ -119,7 +120,7 @@ Start at [`docs/README.md`](docs/README.md) for the full index. The short versio
 | 2 | Architecture sign-off (ADR-0004), workspace created | ✅ done |
 | 3 | `finance-core`: money, accounts, transactions, categories, budgets | ✅ done |
 | 4 | Storage adapter, migrations, backup/restore | 🔄 backups and restore done; export (FR-083) and the pre-migration backup pending |
-| 5 | CSV import pipeline and review screen | ⬜ |
+| 5 | CSV import pipeline and review screen | 🔄 parser, preview and hints done; review screen and commit pending |
 | 6 | Rune UI: entry, register, month view | ⬜ |
 | 7 | Insights engine and month-end summary | ⬜ |
 | 8 | Packaging for Windows / macOS / Linux | ⬜ |

@@ -1,6 +1,6 @@
 # CSV import profile — bank statement
 
-**Status:** shape confirmed from a real export; still missing the raw delimiter details
+**Status:** shape confirmed from a real export; parser implemented against it (2026-11-12)
 **Last updated:** 2026-11-12
 **Answers:** Q-29
 **Requirements:** FR-030 … FR-038
@@ -142,7 +142,7 @@ Expected result after import into one account with an opening balance:
 | FR-032 | Preview must include balance continuity and name the first breaking line |
 | FR-033 | Review assigns a category **or** a transfer counter-account; both are remembered |
 | FR-035 | `INST. NO.` is empty on card rows, so the fallback key (date + amount + description) does the work; a `MSGID:` token is used when present |
-| FR-037 | Thousands separators required; quoted commas likely; BOM and preamble unconfirmed |
+| FR-037 | Thousands separators, quoted commas, BOM, UTF-16 and a preamble above the header are all handled; the date format is chosen by the profile |
 | FR-038 | The destination account is the pass-through bank account |
 
 ## 8. Decisions taken — 2026-11-12
@@ -154,16 +154,19 @@ Expected result after import into one account with an opening balance:
 | 3 | Own-account transfers | Imported as transfers, not income | Savings rate and spending totals stay truthful |
 | 4 | Account structure | Primary bank plus pass-through bank, both tracked | The pass-through statement is the one being imported |
 
-## 9. Still unknown
+## 9. Unknowns and how the parser copes
 
-These do not block the parser, because it must handle them anyway:
+The parser was built against the shape above without waiting for these, because a
+correct importer has to survive them anyway.
 
-- **Delimiters and preamble.** The file was supplied as a spreadsheet image. A
-  bank export often has account-title lines above the header, so the parser
-  locates the header row instead of assuming line 1.
-- **Encoding.** BOM, UTF-8 versus a Windows code page, and non-ASCII merchant
-  names are unconfirmed.
+- **Delimiters and preamble.** The header row is located by column name within
+  the first 50 rows, so account-title lines above it are harmless.
+- **Encoding.** UTF-8 with or without a byte-order mark, and UTF-16 LE or BE with
+  one, are decoded. Anything else is refused rather than guessed, because a wrong
+  code page could change an amount.
 - **Whether the primary account's statement will also be imported**, or only its
   opening balance entered by hand. Tracked as Q-35.
 - **File size and row count** for the three-month load, which decides whether the
-  preview needs paging.
+  preview needs paging. The parser holds the whole file in memory; at
+  personal-finance sizes that is the simpler choice, and paging stays a preview
+  concern.
