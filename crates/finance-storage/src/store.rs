@@ -11,7 +11,9 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 use time::OffsetDateTime;
 
 use crate::StoreError;
+use crate::backup::{self, Backup};
 use crate::codec;
+use crate::integrity::{self, IntegrityReport};
 use crate::schema;
 
 /// One dataset, in one SQLite file.
@@ -23,6 +25,7 @@ use crate::schema;
 pub struct Store {
     connection: Connection,
     currency: Currency,
+    dirty: bool,
 }
 
 impl Store {
@@ -62,12 +65,14 @@ impl Store {
             Some(_) => Ok(Self {
                 connection,
                 currency,
+                dirty: false,
             }),
             None => {
                 write_currency(&connection, currency)?;
                 Ok(Self {
                     connection,
                     currency,
+                    dirty: false,
                 })
             }
         }
@@ -86,6 +91,83 @@ impl Store {
     /// [`StoreError::Corrupt`] if it is not a number.
     pub fn schema_version(&self) -> Result<u32, StoreError> {
         schema::current_version(&self.connection)
+    }
+
+    /// True when the dataset has changed since it was last backed up (FR-080).
+    ///
+    /// The app uses this to decide whether the automatic backup on exit has
+    /// anything to do.
+    pub const fn needs_backup(&self) -> bool {
+        self.dirty
+    }
+
+    /// Runs `PRAGMA integrity_check` and reports what it finds, changing nothing
+    /// (FR-085).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StoreError::Database`] if the check cannot run.
+    pub fn integrity_check(&self) -> Result<IntegrityReport, StoreError> {
+        integrity::check(&self.connection)
+    }
+
+    /// Writes a consistent copy of the dataset to `path`, which must not exist.
+    ///
+    /// The copy is switched out of WAL mode, so it is one file with no sidecar
+    /// files: a backup that needs a `-wal` beside it is not a backup (FR-081).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StoreError::BackupExists`] when `path` is already taken,
+    /// [`StoreError::InvalidPath`] for a path that cannot be used as text, and
+    /// [`StoreError::Database`] if the copy fails.
+    pub fn backup_to(
+        &mut self,
+        path: impl AsRef<Path>,
+        at: OffsetDateTime,
+    ) -> Result<Backup, StoreError> {
+        let path = path.as_ref();
+        if path.exists() {
+            return Err(StoreError::BackupExists {
+                path: path.to_path_buf(),
+            });
+        }
+        let schema_version = self.schema_version()?;
+        let text = path
+            .to_str()
+            .ok_or_else(|| StoreError::InvalidPath(path.to_path_buf()))?;
+
+        self.connection.execute("VACUUM INTO ?1", params![text])?;
+
+        {
+            let copy = Connection::open(path)?;
+            copy.query_row("PRAGMA journal_mode = DELETE", [], |_| Ok(()))?;
+        }
+
+        self.dirty = false;
+        Ok(Backup::new(path.to_path_buf(), at, schema_version))
+    }
+
+    /// Writes a backup into `directory`, named from `at`, then prunes the oldest
+    /// so at most [`backup::KEEP_BACKUPS`] remain (FR-080, FR-086).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StoreError::Io`] if the directory cannot be created, and
+    /// propagates [`Self::backup_to`] and [`backup::prune`].
+    pub fn backup_into(
+        &mut self,
+        directory: impl AsRef<Path>,
+        at: OffsetDateTime,
+    ) -> Result<Backup, StoreError> {
+        let directory = directory.as_ref();
+        std::fs::create_dir_all(directory)?;
+
+        let path = directory.join(backup::file_name(at, self.schema_version()?));
+        let written = self.backup_to(&path, at)?;
+        backup::prune(directory, backup::KEEP_BACKUPS)?;
+
+        Ok(written)
     }
 
     /// Reads the whole dataset.
@@ -155,6 +237,7 @@ impl Store {
         write_currency(&transaction, self.currency)?;
 
         transaction.commit()?;
+        self.dirty = true;
         Ok(())
     }
 
@@ -178,6 +261,7 @@ impl Store {
             params![key.as_str(), codec::timestamp(at)?],
         )?;
         if updated > 0 {
+            self.dirty = true;
             return Ok(());
         }
 
@@ -209,6 +293,7 @@ impl Store {
             params![key.as_str()],
         )?;
         if updated > 0 {
+            self.dirty = true;
             return Ok(());
         }
 

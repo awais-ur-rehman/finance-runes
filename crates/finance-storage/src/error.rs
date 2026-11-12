@@ -1,5 +1,7 @@
 //! What can go wrong while reading or writing a dataset.
 
+use std::path::PathBuf;
+
 use finance_core::{Currency, LedgerError, TransactionError, TransactionId};
 use thiserror::Error;
 
@@ -34,13 +36,35 @@ pub enum StoreError {
     },
 
     /// The dataset was written by a newer build.
-    #[error("the dataset uses schema version {found}, but this build supports up to {supported}")]
+    #[error("the file uses schema version {found}, but this build supports up to {supported}")]
     UnsupportedSchema {
         /// Version found on disk.
         found: u32,
         /// Highest version this build can migrate to.
         supported: u32,
     },
+
+    /// A backup failed its integrity check.
+    #[error("the backup failed its integrity check and was not restored: {problems:?}")]
+    Integrity {
+        /// One line per problem, as SQLite reported it.
+        problems: Vec<String>,
+    },
+
+    /// The target of a backup already exists.
+    #[error("a file already exists at {}", .path.display())]
+    BackupExists {
+        /// The path that is already taken.
+        path: PathBuf,
+    },
+
+    /// A path could not be used as text.
+    #[error("the path {} cannot be used as text", .0.display())]
+    InvalidPath(PathBuf),
+
+    /// A file operation outside SQLite failed.
+    #[error("the file could not be read or written: {0}")]
+    Io(#[from] std::io::Error),
 
     /// A row exists but cannot be interpreted.
     #[error("the {table} table holds a corrupt row: {detail}")]
