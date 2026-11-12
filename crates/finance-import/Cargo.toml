@@ -1,0 +1,19 @@
+[package]
+name = "finance-import"
+description = "Pure CSV statement parsing for Finance: rows, balance continuity, duplicates and merchant hints."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+finance-core = { path = "../finance-core" }
+thiserror.workspace = true
+time.workspace = true
+
+# Quoting, escaped quotes and embedded newlines are easy to get subtly wrong, and
+# a bank description may contain any of them. The crate is pure Rust and does no
+# I/O of its own, so it does not weaken the layering rule.
+csv.workspace = true
