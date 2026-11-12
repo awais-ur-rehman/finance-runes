@@ -7,10 +7,11 @@ use std::collections::BTreeMap;
 
 use time::{Date, Month};
 
-use crate::error::LedgerError;
+use crate::budget::{Budget, BudgetLine, BudgetReport, BudgetState};
+use crate::error::{LedgerError, MoneyError};
 use crate::{
     Account, AccountId, Category, CategoryId, CategoryKind, Currency, Money, PostingTarget,
-    Transaction, TransactionId, TransactionKind,
+    Rounding, Transaction, TransactionId, TransactionKind,
 };
 
 /// A calendar month, used for summaries, budgets and insights.
@@ -49,6 +50,12 @@ impl YearMonth {
     #[must_use]
     pub fn contains(self, date: Date) -> bool {
         date.year() == self.year && date.month() == self.month
+    }
+}
+
+impl std::fmt::Display for YearMonth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:04}-{:02}", self.year, u8::from(self.month))
     }
 }
 
@@ -101,6 +108,7 @@ pub struct Ledger {
     accounts: BTreeMap<AccountId, Account>,
     categories: BTreeMap<CategoryId, Category>,
     transactions: Vec<Transaction>,
+    budgets: BTreeMap<(CategoryId, YearMonth), Budget>,
 }
 
 impl Ledger {
@@ -111,6 +119,7 @@ impl Ledger {
             accounts: BTreeMap::new(),
             categories: BTreeMap::new(),
             transactions: Vec::new(),
+            budgets: BTreeMap::new(),
         }
     }
 
@@ -413,5 +422,265 @@ impl Ledger {
     /// Looks up a transaction by identifier.
     pub fn transaction(&self, id: TransactionId) -> Option<&Transaction> {
         self.transactions.iter().find(|item| item.id() == id)
+    }
+
+    /// Every budget revision, ordered by category and then effective month.
+    pub fn budgets(&self) -> impl Iterator<Item = &Budget> {
+        self.budgets.values()
+    }
+
+    /// The budget in force for `category` in `period`, if any.
+    ///
+    /// The most recent revision that started on or before `period` wins, which is
+    /// what keeps a past month on the limit that applied at the time (FR-054).
+    pub fn budget_in_force(&self, category: CategoryId, period: YearMonth) -> Option<&Budget> {
+        self.budgets
+            .range(..=(category, period))
+            .next_back()
+            .filter(|((budgeted, _), _)| *budgeted == category)
+            .map(|(_, budget)| budget)
+    }
+
+    /// Sets a monthly limit for `category`, in force from `effective_from`.
+    ///
+    /// Setting a second limit for the same category starts a new revision rather
+    /// than editing history, so earlier months keep their old limit.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LedgerError::UnknownCategory`] for an unknown category,
+    /// [`LedgerError::CategoryKindMismatch`] when the category is not an expense
+    /// category, [`LedgerError::Money`] when the amount is in another currency,
+    /// [`LedgerError::NonPositiveBudget`] when the amount is zero or negative,
+    /// and [`LedgerError::BudgetConflict`] when a parent or child category
+    /// already has a budget.
+    pub fn set_budget(
+        &mut self,
+        category: CategoryId,
+        amount: Money,
+        effective_from: YearMonth,
+    ) -> Result<(), LedgerError> {
+        let kind = self
+            .categories
+            .get(&category)
+            .ok_or(LedgerError::UnknownCategory(category))?
+            .kind();
+
+        if kind != CategoryKind::Expense {
+            return Err(LedgerError::CategoryKindMismatch {
+                expected: CategoryKind::Expense,
+                found: kind,
+            });
+        }
+
+        if amount.currency() != self.currency {
+            return Err(LedgerError::Money(MoneyError::CurrencyMismatch {
+                left: amount.currency(),
+                right: self.currency,
+            }));
+        }
+
+        if !amount.is_positive() {
+            return Err(LedgerError::NonPositiveBudget(category));
+        }
+
+        if let Some(other) = self.conflicting_budget(category) {
+            return Err(LedgerError::BudgetConflict { category, other });
+        }
+
+        self.budgets.insert(
+            (category, effective_from),
+            Budget::new(category, amount, effective_from),
+        );
+        Ok(())
+    }
+
+    /// Removes every budget revision for `category`, returning how many went.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LedgerError::UnknownCategory`] for an unknown category.
+    pub fn clear_budget(&mut self, category: CategoryId) -> Result<usize, LedgerError> {
+        if !self.categories.contains_key(&category) {
+            return Err(LedgerError::UnknownCategory(category));
+        }
+        let before = self.budgets.len();
+        self.budgets
+            .retain(|(budgeted, _), _| *budgeted != category);
+        Ok(before - self.budgets.len())
+    }
+
+    /// Spending in `category` and its child categories during `period`.
+    ///
+    /// A budget on a parent covers its children, so this is the figure a budget
+    /// is measured against.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LedgerError::UnknownCategory`] for an unknown category and
+    /// [`LedgerError::Money`] if a total overflows.
+    pub fn spent_on(&self, category: CategoryId, period: YearMonth) -> Result<Money, LedgerError> {
+        if !self.categories.contains_key(&category) {
+            return Err(LedgerError::UnknownCategory(category));
+        }
+
+        let direct = self.spending_in(period)?;
+        let mut total = direct
+            .get(&category)
+            .copied()
+            .unwrap_or_else(|| Money::zero(self.currency));
+
+        for (id, child) in &self.categories {
+            if child.parent() == Some(category)
+                && let Some(amount) = direct.get(id)
+            {
+                total = total.checked_add(*amount)?;
+            }
+        }
+
+        Ok(total)
+    }
+
+    /// The budget position for every budgeted category in `period`.
+    ///
+    /// `near_limit_percent` is the share of the limit at which a category is
+    /// reported as near it, usually [`DEFAULT_NEAR_LIMIT_PERCENT`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LedgerError::InvalidThreshold`] when the percentage is above
+    /// 100 and [`LedgerError::Money`] if a total overflows.
+    ///
+    /// [`DEFAULT_NEAR_LIMIT_PERCENT`]: crate::budget::DEFAULT_NEAR_LIMIT_PERCENT
+    pub fn budget_report(
+        &self,
+        period: YearMonth,
+        near_limit_percent: u8,
+    ) -> Result<BudgetReport, LedgerError> {
+        if near_limit_percent > 100 {
+            return Err(LedgerError::InvalidThreshold {
+                percent: near_limit_percent,
+            });
+        }
+
+        let mut lines = Vec::new();
+        let mut budgeted = Money::zero(self.currency);
+        let mut spent = Money::zero(self.currency);
+
+        for category in self.budgeted_categories() {
+            let Some(budget) = self.budget_in_force(category, period) else {
+                continue;
+            };
+            let category_spent = self.spent_on(category, period)?;
+            let remaining = budget.amount().checked_sub(category_spent)?;
+            let state = classify(budget.amount(), category_spent, near_limit_percent);
+
+            budgeted = budgeted.checked_add(budget.amount())?;
+            spent = spent.checked_add(category_spent)?;
+            lines.push(BudgetLine::new(
+                category,
+                budget.amount(),
+                category_spent,
+                remaining,
+                state,
+            ));
+        }
+
+        let remaining = budgeted.checked_sub(spent)?;
+        let surplus = if remaining.is_positive() {
+            remaining
+        } else {
+            Money::zero(self.currency)
+        };
+
+        Ok(BudgetReport::new(
+            period, lines, budgeted, spent, remaining, surplus,
+        ))
+    }
+
+    /// Copies the budgets in force in `from` into `to`, adjusted by a percentage.
+    ///
+    /// A `adjustment_percent` of `10` raises every limit by ten percent; `-5`
+    /// lowers them. Returns how many budgets were copied (FR-055).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LedgerError::BudgetPeriodOrder`] when `to` is not after `from`,
+    /// and propagates [`Self::set_budget`] for each copied limit.
+    pub fn carry_budget_forward(
+        &mut self,
+        from: YearMonth,
+        to: YearMonth,
+        adjustment_percent: i16,
+    ) -> Result<usize, LedgerError> {
+        if to <= from {
+            return Err(LedgerError::BudgetPeriodOrder { from, to });
+        }
+
+        let factor = i64::from(100_i16.saturating_add(adjustment_percent));
+        let mut copies = Vec::new();
+
+        for category in self.budgeted_categories() {
+            if let Some(budget) = self.budget_in_force(category, from) {
+                let adjusted = budget
+                    .amount()
+                    .checked_mul(factor)?
+                    .div(100, Rounding::HalfUp)?;
+                copies.push((category, adjusted));
+            }
+        }
+
+        let count = copies.len();
+        for (category, amount) in copies {
+            self.set_budget(category, amount, to)?;
+        }
+        Ok(count)
+    }
+
+    /// Every category that has at least one budget revision, ordered.
+    fn budgeted_categories(&self) -> Vec<CategoryId> {
+        let mut ids: Vec<CategoryId> = self.budgets.keys().map(|(category, _)| *category).collect();
+        ids.sort_unstable();
+        ids.dedup();
+        ids
+    }
+
+    /// A parent or child category that already has a budget, if any.
+    ///
+    /// Budgets never end, so two budgets on the same branch would always overlap
+    /// and double-count spending in the totals.
+    fn conflicting_budget(&self, category: CategoryId) -> Option<CategoryId> {
+        let mut ancestor = self.categories.get(&category).and_then(Category::parent);
+        while let Some(id) = ancestor {
+            if self.budgets.keys().any(|(budgeted, _)| *budgeted == id) {
+                return Some(id);
+            }
+            ancestor = self.categories.get(&id).and_then(Category::parent);
+        }
+
+        for (id, other) in &self.categories {
+            if other.parent() == Some(category)
+                && self.budgets.keys().any(|(budgeted, _)| budgeted == id)
+            {
+                return Some(*id);
+            }
+        }
+
+        None
+    }
+}
+
+/// Classifies a category against its limit.
+fn classify(budgeted: Money, spent: Money, near_limit_percent: u8) -> BudgetState {
+    if spent.minor() > budgeted.minor() {
+        return BudgetState::Over;
+    }
+
+    let spent = i128::from(spent.minor());
+    let budgeted = i128::from(budgeted.minor());
+    if spent * 100 >= budgeted * i128::from(near_limit_percent) {
+        BudgetState::NearLimit
+    } else {
+        BudgetState::Within
     }
 }

@@ -19,6 +19,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 mod account;
+mod budget;
 mod category;
 mod error;
 mod id;
@@ -26,10 +27,28 @@ mod ledger;
 pub mod money;
 mod transaction;
 
-pub use account::{Account, AccountKind};
-pub use category::{Category, CategoryKind};
-pub use error::{LedgerError, MoneyError, TransactionError};
-pub use id::{AccountId, CategoryId, TransactionId};
-pub use ledger::{Ledger, MonthSummary, YearMonth};
-pub use money::{Currency, Money, Rounding};
-pub use transaction::{Posting, PostingTarget, Transaction, TransactionKind};
+pub use account::Account;
+pub use account::AccountKind;
+pub use budget::Budget;
+pub use budget::BudgetLine;
+pub use budget::BudgetReport;
+pub use budget::BudgetState;
+pub use budget::DEFAULT_NEAR_LIMIT_PERCENT;
+pub use category::Category;
+pub use category::CategoryKind;
+pub use error::LedgerError;
+pub use error::MoneyError;
+pub use error::TransactionError;
+pub use id::AccountId;
+pub use id::CategoryId;
+pub use id::TransactionId;
+pub use ledger::Ledger;
+pub use ledger::MonthSummary;
+pub use ledger::YearMonth;
+pub use money::Currency;
+pub use money::Money;
+pub use money::Rounding;
+pub use transaction::Posting;
+pub use transaction::PostingTarget;
+pub use transaction::Transaction;
+pub use transaction::TransactionKind;

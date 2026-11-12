@@ -1,7 +1,7 @@
 //! Typed errors. Each variant names a failure the caller can act on.
 
 use crate::money::Currency;
-use crate::{AccountId, CategoryId, CategoryKind, TransactionId, TransactionKind};
+use crate::{AccountId, CategoryId, CategoryKind, TransactionId, TransactionKind, YearMonth};
 
 /// Something went wrong while building or combining an amount.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -131,4 +131,29 @@ pub enum LedgerError {
     /// A posting appeared twice for the same account.
     #[error("a transaction cannot post twice to the same account")]
     DuplicateAccountPosting,
+    /// A budget amount must be greater than zero.
+    #[error("a budget for {0} must be greater than zero")]
+    NonPositiveBudget(CategoryId),
+    /// A budget conflicts with one already set on a parent or child category.
+    #[error("category {category} cannot be budgeted while {other} has a budget")]
+    BudgetConflict {
+        /// The category whose budget was refused.
+        category: CategoryId,
+        /// The ancestor or child category that already has one.
+        other: CategoryId,
+    },
+    /// The near-limit threshold was outside 0..=100.
+    #[error("the near-limit threshold must be 0..=100, got {percent}")]
+    InvalidThreshold {
+        /// The rejected percentage.
+        percent: u8,
+    },
+    /// Budgets can only be carried forward to a later month.
+    #[error("budgets cannot be carried from {from} to {to}")]
+    BudgetPeriodOrder {
+        /// The month copied from.
+        from: YearMonth,
+        /// The month copied to.
+        to: YearMonth,
+    },
 }
