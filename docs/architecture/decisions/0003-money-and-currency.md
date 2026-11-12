@@ -1,6 +1,6 @@
 # ADR-0003 — Money as integer minor units plus currency
 
-**Status:** proposed
+**Status:** accepted (2026-11-12)
 **Date:** 2026-11-12
 **Deciders:** project owner
 **Supersedes:** —

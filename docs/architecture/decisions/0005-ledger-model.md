@@ -1,6 +1,6 @@
 # ADR-0005 — Double-entry ledger behind a single-entry UI
 
-**Status:** proposed
+**Status:** accepted (2026-11-12)
 **Date:** 2026-11-12
 **Deciders:** project owner
 **Supersedes:** —

@@ -2,7 +2,7 @@
 
 A local-first personal finance manager — accounts, transactions, budgets and reports — built as a native desktop app in Rust on [Rune](https://github.com/anomalyco/rune).
 
-> **Status: pre-requirements.** This repository currently holds the project scaffold, documentation and engineering conventions. No application code has been written. Requirements are gathered next; see [Roadmap](#roadmap).
+> **Status: requirements complete (5 of 5 sessions).** The accepted requirement set and architecture decisions are in `docs/`. Architecture sign-off and the workspace come next; no application code yet.
 
 ---
 
@@ -17,18 +17,23 @@ Two beliefs shape every decision here:
 
 ## What it will do (draft)
 
-This is intent, not a specification. It will be replaced by [the requirements documents](docs/requirements/) after requirement gathering.
+The accepted scope lives in [the requirements documents](docs/requirements/); this list is the short version.
 
-- **Accounts** — checking, savings, credit cards, cash, loans, tracked in any currency.
-- **Transactions** — manual entry, splitting, transfers between accounts, notes and attachments.
-- **Import** — CSV/OFX/QIF bank exports with duplicate detection and a review step.
-- **Categories & budgets** — hierarchical categories, monthly budgets, rollover rules.
-- **Reports** — net worth over time, cash flow, spending by category, budget variance.
+- **Expenses and income** — record what you spent, where and on what, in seconds, keyboard-first.
+- **Accounts** — bank and cash in PKR, with transfers between them.
+- **Categories and budgets** — two-level categories, each with a monthly limit.
+- **Month view** — total spend and trend, savings rate, category breakdown.
+- **Savings insights** — specific, explainable findings from your own patterns, plus a month-end summary.
+- **One-time CSV import** — seed the last few months from a bank export.
 - **Local-first** — offline by default, single-user, no account required.
 
 ### Explicit non-goals for v1
 
 - Multi-user or team access.
+- Ongoing monthly statement import (v1 imports a CSV once to seed history).
+- OFX/QFX/QIF import.
+- Multi-currency (PKR only in v1; the schema keeps the door open).
+- Splitting one expense across categories.
 - Bank API aggregation / open banking integrations.
 - Investment portfolio tracking and market data.
 - Tax filing or advice.
@@ -110,12 +115,14 @@ Start at [`docs/README.md`](docs/README.md) for the full index. The short versio
 | Phase | Deliverable | State |
 | --- | --- | --- |
 | 0 | Repository scaffold, conventions, docs skeleton | ✅ done |
-| 1 | Requirement gathering → filled `docs/requirements/` | ⬜ next |
-| 2 | Architecture sign-off (ADRs accepted), workspace created | ⬜ |
-| 3 | `finance-core` domain model + property tests | ⬜ |
-| 4 | Storage adapter + migrations + importers | ⬜ |
-| 5 | Rune UI: accounts, register, budgets, reports | ⬜ |
-| 6 | Packaging for macOS / Windows / Linux | ⬜ |
+| 1 | Requirement gathering → filled `docs/requirements/` | ✅ done (5 sessions) |
+| 2 | Architecture sign-off (ADR-0004), workspace created | ⬜ next |
+| 3 | `finance-core`: money, accounts, transactions, categories, budgets | ⬜ |
+| 4 | Storage adapter, migrations, backup/restore | ⬜ |
+| 5 | CSV import pipeline and review screen | ⬜ |
+| 6 | Rune UI: entry, register, month view | ⬜ |
+| 7 | Insights engine and month-end summary | ⬜ |
+| 8 | Packaging for Windows / macOS / Linux | ⬜ |
 
 ## Contributing
 

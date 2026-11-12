@@ -111,9 +111,10 @@ Recorded as ADRs in [`decisions/`](decisions/). Accepted decisions are immutable
 | --- | --- | --- |
 | [0001](decisions/0001-record-architecture-decisions.md) | Record architecture decisions | Accepted |
 | [0002](decisions/0002-rust-and-rune.md) | Rust + Rune, thin UI layer | Accepted |
-| [0003](decisions/0003-money-and-currency.md) | Integer minor units, no floats | Proposed |
-| [0004](decisions/0004-local-first-storage.md) | Local-first, single file, SQLite | Proposed |
-| [0005](decisions/0005-ledger-model.md) | Double-entry ledger behind a simple UI | Proposed |
+| [0003](decisions/0003-money-and-currency.md) | Integer minor units, no floats | Accepted |
+| [0004](decisions/0004-local-first-storage.md) | Local-first, single file, SQLite | **Proposed — needs sign-off** |
+| [0005](decisions/0005-ledger-model.md) | Double-entry ledger behind a simple UI | Accepted |
+| [0006](decisions/0006-insights-engine.md) | Deterministic insights, seam for an assistant | Accepted |
 
 ## Still to design
 

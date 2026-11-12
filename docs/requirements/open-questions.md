@@ -5,6 +5,8 @@
 
 Each question states why it matters, the options, and a recommendation. When answered, move the answer into the relevant requirement or ADR and mark the question `Answered` with a link. Never delete a question — the reasoning is the value.
 
+**Sessions 1–5 (2026-11-12) closed Q-01, Q-03, Q-04, Q-13 and Q-17…Q-28.** See [Answered](#answered) at the bottom for the decisions and where they were recorded. Q-29…Q-34 were raised during the sessions and are still open.
+
 ---
 
 ## Blocking architecture
@@ -102,8 +104,73 @@ If a second user (partner, household) is plausible, some schema decisions (owner
 
 Signed installer, portable zip, `cargo install`? Affects CI and release work more than the app.
 
+**Answered 2026-11-12:** a portable archive per platform, no installer, no signing in v1 (Q-27).
+
+---
+
+## Raised in sessions 3–5
+
+### Q-29 — What columns does your bank CSV actually have?
+
+**Status:** open — blocks the importer's saved profile.
+
+The importer is a one-time historical load (FR-030…FR-038). We still do not know the file's shape: one signed amount column or separate debit/credit, the date format, whether a reference number exists, and how the description is written.
+
+**Recommendation:** build the generic mapping UI regardless, then save a profile tuned to the real file once you paste the header row and two fake rows. No real statement in the repo.
+
+### Q-30 — Where does the savings account come from?
+
+Budget surplus is offered as a transfer to a savings account (FR-053), but session 2 chose only bank and cash.
+
+**Options:** (a) first run offers to create a `savings` account, skippable; (b) the destination is any account the user labels; (c) surplus is tracked only, with no transfer.
+
+**Recommendation:** (a). It keeps the concept explicit without forcing a second account on someone who does not want one.
+
+### Q-31 — Is month close explicit or automatic?
+
+The surplus-to-savings action moves real money, so it needs a moment where the user agrees the month is done.
+
+**Options:** explicit "close month"; automatic on the first of the next month; auto-suggest with confirmation.
+
+**Recommendation:** explicit close (FR-093), because it gates a money-moving suggestion.
+
+### Q-32 — What is "unspent budget" when only some categories have budgets?
+
+Only categories with a limit contribute. The edge cases are what matter: a category with no budget, an overspent category, and a month with no budgets at all.
+
+**Recommendation:** sum `max(0, budget − spent)` over categories that have a budget; subtract overspends; floor the offer at zero; show the per-category breakdown behind the number.
+
+### Q-33 — Should recurring items post automatically?
+
+**Recommendation:** confirm each one in v1 (FR-058). Auto-posting (FR-060) is a later convenience, not a v1 risk worth taking.
+
+### Q-34 — Is deleting a transaction a soft delete?
+
+**Recommendation:** soft delete with an audit record hidden from the UI, purged only on full export. It makes undo honest and costs one column.
+
 ---
 
 ## Answered
 
-_None yet._
+| Question | Answer | Recorded in |
+| --- | --- | --- |
+| Q-01 — ledger model | Hidden double-entry; UI shows no accounting terms | [ADR-0005](../architecture/decisions/0005-ledger-model.md) |
+| Q-03 — multi-currency | PKR only in v1; `Money` still carries a currency code | [Brief §4](../00-project-brief.md#4-scope) |
+| Q-04 — encryption at rest | OS disk encryption only, stated plainly in the README and onboarding | [Brief §5](../00-project-brief.md#5-decisions-so-far) |
+| Q-13 — bank formats | Not applicable: manual entry only, import deferred to post-v1 | [FR-030…037](functional-requirements.md#import-deferred--not-in-v1) |
+| Q-17 — income | Record income as well as expenses | [Brief §5](../00-project-brief.md#5-decisions-so-far) |
+| Q-18 — budgets | Monthly limit per category, with overspend flags | [Brief §5](../00-project-brief.md#5-decisions-so-far) |
+| Q-19 — advice mechanism | Rule-based insights in v1; conversational assistant later, behind a seam | [Brief §5](../00-project-brief.md#5-decisions-so-far) |
+| Q-20 — payment methods | Bank account and cash; wallet and card modelled but no UI | [Brief §5](../00-project-brief.md#5-decisions-so-far) |
+| Q-21 — "where" | Merchant/payee name plus a free-text note | [Brief §5](../00-project-brief.md#5-decisions-so-far) |
+| Q-22 — entry fields | Amount, category, merchant, account; date defaults to today | [Brief §5](../00-project-brief.md#5-decisions-so-far) |
+| Q-23 — budget meaning | A cap; unspent is offered as a confirmed transfer to savings, never automatic | [FR-053](functional-requirements.md#budgets) |
+| Q-24 — starting history | One-time CSV import of roughly three months | [FR-030…038](functional-requirements.md#csv-import--one-time-historical-load) |
+| Q-25 — backup | Automatic on exit when data changed, keeping 10, plus manual | [FR-080](functional-requirements.md#data-backup-and-portability) |
+| Q-26 — number format | South Asian grouping by default, configurable | [NFR-050](non-functional-requirements.md#formatting-and-internationalisation) |
+| Q-27 — packaging | Portable archive per platform; no installer or signing in v1 | [NFR-031](non-functional-requirements.md#portability-and-durability) |
+| Q-28 — language | English only, but every string externalised for later translation | [NFR-055](non-functional-requirements.md#formatting-and-internationalisation) |
+
+Also resolved during the sessions, without a dedicated row above: Q-05 (no rules engine; the app remembers merchant → category), Q-06 (category caps, not envelopes), Q-09 (dedupe by reference, else date + amount + description), Q-11 (multiple datasets deferred), Q-14 (all three platforms equally), Q-15 (single user in v1).
+
+Still genuinely open: Q-12 (future-dated transactions), Q-02 (storage sign-off), and Q-29…Q-34.
