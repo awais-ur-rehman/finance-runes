@@ -52,12 +52,12 @@ Derived from five requirement sessions. Read [the conventions](README.md) and th
 
 | ID | Pri | Requirement |
 | --- | --- | --- |
-| FR-030 | M | Import a CSV with a user-mapped layout: date column, description column, and either one signed amount column or separate debit/credit columns. |
+| FR-030 | M | Import a CSV with a user-mapped layout: date column, description column, and either one signed amount column or separate debit/credit columns. A row that carries only the opening balance is recognised and imported as the account's opening balance, not as a transaction. |
 | FR-031 | M | Save the mapping as a named bank profile and reuse it on the next import. |
-| FR-032 | M | Preview before committing: row count, date range, total in, total out, detected duplicates, and unparseable rows with their line numbers. |
-| FR-033 | M | Review screen: assign a category to each row before saving. The app remembers merchant → category and applies it to later rows and future entries. |
+| FR-032 | M | Preview before committing: row count, date range, total in, total out, detected duplicates, unparseable rows with their line numbers, and any break in the running balance the file provides, naming the first offending line and both balances. |
+| FR-033 | M | Review screen: assign a category to each row, or mark it as a transfer to another of your own accounts, before saving. The app remembers merchant → category and pattern → transfer, and applies both to later rows and future entries. |
 | FR-034 | M | Commit is atomic: either every confirmed row is written or nothing is. |
-| FR-035 | M | Detect duplicates against existing transactions and within the file — by reference number when present, otherwise by date, amount and description. Default to skipping; the user can override. |
+| FR-035 | M | Detect duplicates against existing transactions and within the file — by reference number when present, including a bank message id embedded in the description, otherwise by date, amount and description. Default to skipping; the user can override. |
 | FR-036 | M | Imported transactions are marked with their source and remain editable like any other transaction. |
 | FR-037 | S | Handle BOM, CRLF, quoted commas, thousands separators, multiple date formats and parenthesised negatives. |
 | FR-038 | S | Choose the destination account at import time. |
@@ -171,6 +171,9 @@ The requirements most likely to be implemented wrongly. Everything here is testa
 - Given a row whose date cannot be parsed, then it is listed with its line number and excluded from the commit, and the remaining rows can still be imported.
 - Given I assign `Groceries` to `IMTIAZ STORE`, when a later row has the same description, then `Groceries` is preselected for it.
 - Given the commit fails partway, then no row is written.
+- Given the first row is an opening-balance marker, when I open the preview, then it is reported as the opening balance, not as a transaction, and it appears in neither the in total nor the out total.
+- Given a row's stated balance disagrees with the previous balance plus its amount, then the preview names that line and both balances, and still allows the remaining rows to be imported.
+- Given a row is marked as a transfer to another of my accounts, then it is excluded from income and expenses, and a later row with the same pattern is preselected as that same transfer.
 
 ### FR-053 — unspent budget to savings
 

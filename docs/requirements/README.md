@@ -1,6 +1,6 @@
 # Requirements
 
-**Status:** template — to be filled during requirement gathering
+**Status:** accepted for v1
 **Last updated:** 2026-11-12
 
 ## How we write requirements here
@@ -53,6 +53,7 @@ to save a split that does not.
 | [functional-requirements.md](functional-requirements.md) | What the app does, by area |
 | [non-functional-requirements.md](non-functional-requirements.md) | Quality attributes with measurable targets |
 | [glossary.md](glossary.md) | Domain vocabulary — read this before writing requirements |
+| [csv-import-profile.md](csv-import-profile.md) | The real bank statement shape, with synthetic fixtures |
 | [open-questions.md](open-questions.md) | Undecided items blocking or shaping requirements |
 
 ## Process

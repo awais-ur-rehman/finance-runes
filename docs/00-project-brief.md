@@ -1,6 +1,6 @@
 # Project brief
 
-**Status:** requirement gathering complete — 5 of 5 sessions
+**Status:** requirements accepted; implementation started
 **Last updated:** 2026-11-12
 **Owner:** awais-ur-rehman
 
@@ -49,7 +49,7 @@ Differentiators:
 - **Transfers** between own accounts, excluded from income and expense totals.
 - **Categories** — two levels, seeded with an editable starter set.
 - **Search** by merchant, category, account, date range and amount range.
-- **CSV import** — one-time historical load: column mapping, review with category assignment, duplicate detection, atomic commit.
+- **CSV import** — one-time historical load: column mapping, opening balance, running-balance verification, review with category or transfer assignment, duplicate detection, atomic commit.
 - **Budgets** — monthly limit per category, with overspend and near-limit flags.
 - **Month-end surplus** — unspent budget offered as a *confirmed* transfer to a savings account.
 - **Recurring expenses** — templates with a due date and one-action posting.
@@ -112,6 +112,10 @@ Differentiators:
 | 23 | Formatting (Q-26) | **South Asian grouping** default | `12,34,567`, configurable |
 | 24 | Packaging (Q-27) | **Portable archive** per platform | No signing or installer in v1 |
 | 25 | Language (Q-28) | English, strings externalised | Urdu later is translation, not refactor |
+| 26 | CSV shape (Q-29) | Six columns: date, particulars, instrument, debit, credit, balance | Importer is built against the real file, not a guess |
+| 27 | Opening-balance row | Imported as the account's opening balance | No zero-amount transaction; later balances still tie out |
+| 28 | Balance column | Verified on every imported row, breaks flagged in preview | Catches misparsed, skipped and duplicate rows before commit |
+| 29 | Own-account transfers | Imported as transfers between two tracked bank accounts | Savings rate stays truthful; the pass-through account is the one with a statement |
 
 ## 6. Success criteria
 
@@ -134,7 +138,7 @@ Differentiators:
 - **Solo developer, agent-assisted.** Boring solutions, explicit decisions, small PRs.
 - **Three platforms is a real cost.** CI runs all three from the first crate; no OS-specific code in the domain.
 - **Manual entry makes UX the product.** If entry is slow, nothing else matters.
-- **The CSV shape is unknown.** The importer must work from a generic mapping UI until a real sample arrives.
+- **The CSV shape is known, the encoding is not.** The six-column layout is confirmed; delimiters, preamble lines and encoding still need checking against the raw file.
 - **Advice needs data.** A new user has three imported months at best; the first month must still be useful.
 
 ## 8. Risks
@@ -144,7 +148,7 @@ Differentiators:
 | Entry friction → user stops recording | Fatal: no data, no value | Keyboard-first entry, smart defaults, four fields, fast correction |
 | Advice feels generic or preachy | Trust loss | Data-backed findings only; quantified; dismissible; no moralising copy |
 | Advice from thin data is wrong | Credibility loss | Minimum-history rules; state what is missing (FR-106) |
-| Unknown CSV shape breaks the one-time import | Bad history, wasted effort | Generic mapping, preview, atomic commit, saved profile once a sample exists (Q-29) |
+| Pass-through transfers imported as income | Savings rate overstated, advice wrong | Transfers are first-class on import, remembered by pattern (FR-033) |
 | Surplus-to-savings creates phantom money | Ledger lies | Transfer only after explicit confirmation; no automatic posting (FR-053) |
 | Three-platform support slows delivery | Schedule | CI matrix early; portable archives; no platform code in the domain |
 | PKR-only assumption breaks | Rework | Currency code in the money type from day one |
@@ -152,12 +156,11 @@ Differentiators:
 
 ## 9. Open decisions
 
-- **Q-02** — storage engine. SQLite recommended, ADR-0004 still needs a yes/no.
-- **Q-29** — the real CSV columns. Blocks the importer's saved profile, not the mapping UI.
 - **Q-30** — how a savings account comes into existence.
 - **Q-31** — whether month close is explicit or automatic.
 - **Q-32** — the exact unspent-budget formula, including categories without a limit.
 - **Q-34** — whether deletes are soft (recommended) or hard.
+- **Q-35** — whether the primary bank account is imported or only given an opening balance.
 
 ## 10. Session log
 
@@ -168,3 +171,4 @@ Differentiators:
 | 3 | 2026-11-12 | Categories, correction, lookup | Two levels, starter set, no splits, edit/delete with undo, search scope, duplicate warning |
 | 4 | 2026-11-12 | Budgets, month view, advice | Cap + confirmed surplus transfer, month view contents, recurring, savings goal, insight types |
 | 5 | 2026-11-12 | History, safety, delivery | One-time CSV import, backup policy, South Asian formatting, portable zip, English-only i18n-ready |
+| 6 | 2026-11-12 | Real bank statement | Six-column shape, opening-balance row, balance continuity check, own-account transfers |

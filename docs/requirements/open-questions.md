@@ -90,7 +90,7 @@ Allowed and excluded from balances until the date arrives, or refused? **Recomme
 
 ### Q-13 — Which banks/formats must the importers support first?
 
-Need real (anonymised) samples for each. Without a fixture corpus, import quality is guesswork. **Needs input from the user.**
+**Status:** answered 2026-11-12 — one CSV shape, see [the import profile](csv-import-profile.md). OFX/QFX/QIF are deferred (FR-039).
 
 ### Q-14 — Which platform is the primary target?
 
@@ -112,11 +112,11 @@ Signed installer, portable zip, `cargo install`? Affects CI and release work mor
 
 ### Q-29 — What columns does your bank CSV actually have?
 
-**Status:** open — blocks the importer's saved profile.
+**Status:** answered 2026-11-12 — see [the import profile](csv-import-profile.md).
 
-The importer is a one-time historical load (FR-030…FR-038). We still do not know the file's shape: one signed amount column or separate debit/credit, the date format, whether a reference number exists, and how the description is written.
+**Answer:** six columns — `DATE`, `PARTICULARS`, `INST. NO.`, `DEBIT`, `CREDIT`, `BALANCE`. Dates are `DD-Mon-YYYY`, debit and credit are separate columns with thousands separators, every row carries a running balance, and the first row is an opening-balance marker rather than a transaction.
 
-**Recommendation:** build the generic mapping UI regardless, then save a profile tuned to the real file once you paste the header row and two fake rows. No real statement in the repo.
+Two consequences the requirements did not anticipate: the running balance enables a continuity check before commit, and some rows are the owner's own money moving between two of their accounts, which must import as transfers rather than income.
 
 ### Q-30 — Where does the savings account come from?
 
@@ -148,6 +148,21 @@ Only categories with a limit contribute. The edge cases are what matter: a categ
 
 **Recommendation:** soft delete with an audit record hidden from the UI, purged only on full export. It makes undo honest and costs one column.
 
+### Q-35 — Is the primary bank account imported too, or only entered by hand?
+
+The imported statement belongs to the **pass-through** account. Money reaches it
+from the primary bank, so the other side of every transfer is an account whose
+history we do not have.
+
+**Options:** (a) track the primary account with an opening balance only, and let
+transfers adjust it from there; (b) import the primary account's statement as
+well, giving both sides real history; (c) do not track the primary account, and
+record the transfers as a non-income category instead.
+
+**Recommendation:** (a) for the first import. It keeps the ledger honest with one
+statement, and (b) stays open if the second statement turns out to be easy to
+export.
+
 ---
 
 ## Answered
@@ -157,7 +172,7 @@ Only categories with a limit contribute. The edge cases are what matter: a categ
 | Q-01 — ledger model | Hidden double-entry; UI shows no accounting terms | [ADR-0005](../architecture/decisions/0005-ledger-model.md) |
 | Q-03 — multi-currency | PKR only in v1; `Money` still carries a currency code | [Brief §4](../00-project-brief.md#4-scope) |
 | Q-04 — encryption at rest | OS disk encryption only, stated plainly in the README and onboarding | [Brief §5](../00-project-brief.md#5-decisions-so-far) |
-| Q-13 — bank formats | Not applicable: manual entry only, import deferred to post-v1 | [FR-030…037](functional-requirements.md#import-deferred--not-in-v1) |
+| Q-13 — bank formats | One CSV shape, now known: six columns with separate debit and credit; OFX/QFX/QIF stay deferred | [Import profile](csv-import-profile.md) |
 | Q-17 — income | Record income as well as expenses | [Brief §5](../00-project-brief.md#5-decisions-so-far) |
 | Q-18 — budgets | Monthly limit per category, with overspend flags | [Brief §5](../00-project-brief.md#5-decisions-so-far) |
 | Q-19 — advice mechanism | Rule-based insights in v1; conversational assistant later, behind a seam | [Brief §5](../00-project-brief.md#5-decisions-so-far) |
@@ -170,6 +185,7 @@ Only categories with a limit contribute. The edge cases are what matter: a categ
 | Q-26 — number format | South Asian grouping by default, configurable | [NFR-050](non-functional-requirements.md#formatting-and-internationalisation) |
 | Q-27 — packaging | Portable archive per platform; no installer or signing in v1 | [NFR-031](non-functional-requirements.md#portability-and-durability) |
 | Q-28 — language | English only, but every string externalised for later translation | [NFR-055](non-functional-requirements.md#formatting-and-internationalisation) |
+| Q-29 — bank CSV columns | Six columns, `DD-Mon-YYYY`, separate debit and credit, a running balance on every row, opening-balance marker first | [Import profile](csv-import-profile.md) |
 
 Also resolved during the sessions, without a dedicated row above: Q-05 (no rules engine; the app remembers merchant → category), Q-06 (category caps, not envelopes), Q-09 (dedupe by reference, else date + amount + description), Q-11 (multiple datasets deferred), Q-14 (all three platforms equally), Q-15 (single user in v1).
 
