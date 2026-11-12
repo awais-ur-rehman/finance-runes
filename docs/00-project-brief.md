@@ -116,6 +116,9 @@ Differentiators:
 | 27 | Opening-balance row | Imported as the account's opening balance | No zero-amount transaction; later balances still tie out |
 | 28 | Balance column | Verified on every imported row, breaks flagged in preview | Catches misparsed, skipped and duplicate rows before commit |
 | 29 | Own-account transfers | Imported as transfers between two tracked bank accounts | Savings rate stays truthful; the pass-through account is the one with a statement |
+| 30 | Savings account (Q-30) | First run offers to create one; skippable | The month-end transfer has a destination without forcing a second account |
+| 31 | Month close (Q-31) | **Automatic on the 1st**; past months stay editable | A late entry is normal, so no lock and no unlock step |
+| 32 | Deleting (Q-34) | **Soft delete**, hidden from every view | Undo restores exactly; purge only on full export |
 
 ## 6. Success criteria
 
@@ -156,10 +159,8 @@ Differentiators:
 
 ## 9. Open decisions
 
-- **Q-30** — how a savings account comes into existence.
-- **Q-31** — whether month close is explicit or automatic.
+- **Q-12** — what "today" means for a transaction dated in the future.
 - **Q-32** — the exact unspent-budget formula, including categories without a limit.
-- **Q-34** — whether deletes are soft (recommended) or hard.
 - **Q-35** — whether the primary bank account is imported or only given an opening balance.
 
 ## 10. Session log
@@ -172,3 +173,4 @@ Differentiators:
 | 4 | 2026-11-12 | Budgets, month view, advice | Cap + confirmed surplus transfer, month view contents, recurring, savings goal, insight types |
 | 5 | 2026-11-12 | History, safety, delivery | One-time CSV import, backup policy, South Asian formatting, portable zip, English-only i18n-ready |
 | 6 | 2026-11-12 | Real bank statement | Six-column shape, opening-balance row, balance continuity check, own-account transfers |
+| 7 | 2026-11-12 | Storage decisions | Automatic month close, skippable savings account, soft delete |

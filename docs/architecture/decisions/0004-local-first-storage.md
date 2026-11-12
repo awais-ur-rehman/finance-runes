@@ -32,9 +32,9 @@ Store the dataset in a **single SQLite database file** (bundled SQLite via `rusq
 Rules:
 
 1. **One file per dataset**, in a user-chosen directory. Attachments live beside it in a managed folder (Q-10).
-2. **WAL mode**, `synchronous = NORMAL` or `FULL` (decide with a benchmark), foreign keys on.
+2. **WAL mode**, `synchronous = FULL`, foreign keys on. WAL survives a crash mid-write; `FULL` costs one fsync per commit, which is irrelevant at personal-finance data sizes and buys the strongest durability (decided 2026-11-12).
 3. **Every write is one transaction.** No partial imports (FR-034), no partial migrations (NFR-004).
-4. **Migrations are versioned and forward-only**, recorded in a `schema_version` table, each with a test that runs it from every historical schema.
+4. **Migrations are versioned and forward-only**, recorded in a `schema_migrations` table, each with a test that runs it from every historical schema.
 5. **Backup uses SQLite's own consistent-copy mechanism** (`VACUUM INTO`), never a file copy of a live database.
 6. **Integrity is checkable** without modifying data (`PRAGMA integrity_check`, NFR-084).
 7. **The storage crate contains no business rules.** It maps rows to domain types and back.
@@ -51,6 +51,6 @@ Rules:
 ## Follow-ups
 
 - [ ] Benchmark WAL + `synchronous` settings against NFR-010/NFR-014.
-- [ ] Write the schema-version and migration harness before the first table.
-- [ ] Add a crash-injection test that kills the process during a write loop.
+- [x] Write the schema-version and migration harness before the first table.
+- [ ] Add a crash-injection test that kills the process during a write loop. The rollback path is covered by a competing-writer test; a real kill is still missing.
 - [ ] Document the on-disk layout in `docs/engineering/` so a user can recover data by hand.

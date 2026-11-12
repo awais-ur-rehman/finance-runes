@@ -120,19 +120,15 @@ Two consequences the requirements did not anticipate: the running balance enable
 
 ### Q-30 — Where does the savings account come from?
 
-Budget surplus is offered as a transfer to a savings account (FR-053), but session 2 chose only bank and cash.
+**Status:** answered 2026-11-12 — first run offers one, and it can be skipped (FR-090).
 
-**Options:** (a) first run offers to create a `savings` account, skippable; (b) the destination is any account the user labels; (c) surplus is tracked only, with no transfer.
-
-**Recommendation:** (a). It keeps the concept explicit without forcing a second account on someone who does not want one.
+**Answer:** the first-run flow offers to create a `savings` account. Declining leaves the app without a savings destination; FR-053 then explains how to designate one rather than failing silently.
 
 ### Q-31 — Is month close explicit or automatic?
 
-The surplus-to-savings action moves real money, so it needs a moment where the user agrees the month is done.
+**Status:** answered 2026-11-12 — automatic on the first of the next month (FR-093).
 
-**Options:** explicit "close month"; automatic on the first of the next month; auto-suggest with confirmation.
-
-**Recommendation:** explicit close (FR-093), because it gates a money-moving suggestion.
+**Answer:** the previous month closes by itself on the 1st. It is **not** locked. A late entry is normal, so a closed month stays editable and its surplus recalculates until the transfer is accepted; after that the month is settled. Locking past months would have contradicted FR-013 and FR-014, which allow any transaction to be edited or deleted.
 
 ### Q-32 — What is "unspent budget" when only some categories have budgets?
 
@@ -146,7 +142,9 @@ Only categories with a limit contribute. The edge cases are what matter: a categ
 
 ### Q-34 — Is deleting a transaction a soft delete?
 
-**Recommendation:** soft delete with an audit record hidden from the UI, purged only on full export. It makes undo honest and costs one column.
+**Status:** answered 2026-11-12 — soft delete (FR-014).
+
+**Answer:** the row is kept with a deletion marker, hidden from every view, restored exactly by undo, and purged only by a full export. The column exists in schema version 1, so no migration is needed later.
 
 ### Q-35 — Is the primary bank account imported too, or only entered by hand?
 
@@ -186,7 +184,10 @@ export.
 | Q-27 — packaging | Portable archive per platform; no installer or signing in v1 | [NFR-031](non-functional-requirements.md#portability-and-durability) |
 | Q-28 — language | English only, but every string externalised for later translation | [NFR-055](non-functional-requirements.md#formatting-and-internationalisation) |
 | Q-29 — bank CSV columns | Six columns, `DD-Mon-YYYY`, separate debit and credit, a running balance on every row, opening-balance marker first | [Import profile](csv-import-profile.md) |
+| Q-30 — savings account | First run offers to create one; it can be skipped | [FR-090](functional-requirements.md#application-shell-and-settings) |
+| Q-31 — month close | Automatic on the 1st; closed months stay editable and unsettled until the transfer is accepted | [FR-093](functional-requirements.md#detailed-acceptance-criteria) |
+| Q-34 — deleting | Soft delete, hidden from every view, purged only on full export | [FR-014](functional-requirements.md#detailed-acceptance-criteria) |
 
 Also resolved during the sessions, without a dedicated row above: Q-05 (no rules engine; the app remembers merchant → category), Q-06 (category caps, not envelopes), Q-09 (dedupe by reference, else date + amount + description), Q-11 (multiple datasets deferred), Q-14 (all three platforms equally), Q-15 (single user in v1).
 
-Still genuinely open: Q-12 (future-dated transactions), Q-02 (storage sign-off), and Q-29…Q-34.
+Still genuinely open: Q-02 (storage sign-off), Q-12 (future-dated transactions), Q-32 (the unspent-budget formula, pending confirmation), and Q-35 (whether the primary bank statement is imported).

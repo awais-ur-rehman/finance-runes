@@ -29,7 +29,7 @@ Derived from five requirement sessions. Read [the conventions](README.md) and th
 | FR-011 | M | Record income with amount, date, source, income category, account and an optional note. |
 | FR-012 | M | Amounts are entered and stored exactly; the app never silently rounds a user-entered value. |
 | FR-013 | M | Edit any transaction; balances and reports reflect the change immediately. |
-| FR-014 | M | Delete a transaction after a single confirmation, with an immediate undo available. |
+| FR-014 | M | Delete a transaction after a single confirmation, with an immediate undo available. The row is kept with a deletion marker and excluded from every view, so undo restores it exactly. |
 | FR-015 | M | Warn — without blocking — when a new transaction matches an existing one on amount, merchant and date. |
 | FR-016 | M | Direction is explicit: an amount is always positive and the transaction is either income or expense. Negative amounts are rejected. |
 | FR-017 | S | Keyboard-first entry: `Enter` saves, `Tab` moves forward, date accepts shortcuts (`today`, `-1d`), amount accepts simple arithmetic (`450+80`). |
@@ -136,7 +136,7 @@ Derived from five requirement sessions. Read [the conventions](README.md) and th
 | FR-090 | M | First run: create a dataset, set the name, seed the starter categories, optionally create a savings account. |
 | FR-091 | M | Reopen the last-used dataset on launch. |
 | FR-092 | M | Settings for number format (default South Asian), date format, week start, theme, savings goal and backup location. |
-| FR-093 | S | Mark a month as closed; closed months still appear in reports but resist edits without an explicit unlock. |
+| FR-093 | S | Close a month automatically on the first day of the next month, computing its surplus (FR-053) and offering it as a transfer. A closed month stays editable: a late entry is recorded normally and the offer recalculates until it is accepted, after which the month is settled and no second offer is made. |
 | FR-094 | S | Command palette reachable from any screen. |
 | FR-095 | C | Multiple datasets (personal, household) switchable from the menu. |
 
@@ -160,6 +160,12 @@ The requirements most likely to be implemented wrongly. Everything here is testa
 - Given I have not chosen an account, when I save, then the default account is used and the row is saved without extra prompting.
 - Given I enter `0` or leave the amount empty, when I save, then nothing is saved and the amount field is focused with an explanation.
 
+### FR-014 — delete with undo
+
+- Given I delete a transaction, then it disappears from the register, balances, month totals, budgets and insights immediately.
+- Given I press undo, then the transaction returns with the same identifier, date, amount, account, category, payee and note, and every total is back to its previous value.
+- Given the undo window has passed, then the row is still kept with a deletion marker, hidden from every view, and removed only by a full export (Q-34).
+
 ### FR-015 — duplicate warning
 
 - Given an expense of 450 at Imtiaz dated today exists, when I enter the same amount, merchant and date, then a non-blocking warning appears and the save still succeeds if I confirm.
@@ -181,6 +187,13 @@ The requirements most likely to be implemented wrongly. Everything here is testa
 - Given a category is over budget, then its overspend reduces the offered total and is shown as a separate line; the offer never goes below zero.
 - Given I accept, then one transfer transaction is created and the month's budget status is marked as settled.
 - Given no savings account is designated, then the action explains how to designate one instead of failing silently.
+
+### FR-093 — automatic month close
+
+- Given the first day of a month arrives, then the previous month is closed without an action from me.
+- Given a closed month, when I add, edit or delete a transaction in it, then the change is accepted and the month's totals and surplus recalculate.
+- Given I accepted the surplus transfer for a month, then that month is settled and no second offer is made for it, even if a later correction changes its surplus.
+- Given a month with no budgets, then it closes with no offer and no error.
 
 ### FR-062 — savings rate
 
