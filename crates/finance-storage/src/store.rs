@@ -393,7 +393,7 @@ impl Store {
         let mut postings = self.postings()?;
 
         let mut statement = self.connection.prepare(
-            "SELECT id, date, kind, payee, note FROM transactions
+            "SELECT id, date, kind, payee, note, source, source_profile FROM transactions
              WHERE deleted_at IS NULL ORDER BY rowid",
         )?;
         let rows: Vec<RawTransaction> = statement
@@ -405,10 +405,16 @@ impl Store {
             let key = codec::parse_uuid(&row.id, "transactions")?;
             let date = codec::parse_date(&row.date, "transactions")?;
             let kind = codec::parse_transaction_kind(&row.kind, "transactions")?;
+            let source = codec::parse_transaction_source(
+                &row.source,
+                row.source_profile.as_deref(),
+                "transactions",
+            )?;
             let items = postings.remove(&row.id).unwrap_or_default();
 
             let mut transaction =
-                Transaction::new(TransactionId::from_uuid(key), date, kind, items)?;
+                Transaction::new(TransactionId::from_uuid(key), date, kind, items)?
+                    .with_source(source);
             if let Some(payee) = row.payee {
                 transaction = transaction.with_payee(payee);
             }
@@ -560,8 +566,8 @@ fn insert_categories(connection: &Connection, ledger: &Ledger) -> Result<(), Sto
 
 fn insert_transactions(connection: &Connection, ledger: &Ledger) -> Result<(), StoreError> {
     let mut insert = connection.prepare(
-        "INSERT INTO transactions (id, date, kind, payee, note, deleted_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, NULL)",
+        "INSERT INTO transactions (id, date, kind, payee, note, source, source_profile, deleted_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL)",
     )?;
     let mut insert_posting = connection.prepare(
         "INSERT INTO postings (transaction_id, position, target_kind, target_id, amount_minor)
@@ -570,12 +576,15 @@ fn insert_transactions(connection: &Connection, ledger: &Ledger) -> Result<(), S
 
     for transaction in ledger.transactions() {
         let id = codec::uuid(transaction.id().as_uuid());
+        let (source, profile) = codec::transaction_source(transaction.source());
         insert.execute(params![
             id.as_str(),
             codec::date(transaction.date()),
             codec::transaction_kind(transaction.kind()),
             transaction.payee(),
             transaction.note(),
+            source,
+            profile,
         ])?;
 
         for (position, posting) in transaction.postings().iter().enumerate() {
@@ -659,6 +668,8 @@ struct RawTransaction {
     kind: String,
     payee: Option<String>,
     note: Option<String>,
+    source: String,
+    source_profile: Option<String>,
 }
 
 impl RawTransaction {
@@ -669,6 +680,8 @@ impl RawTransaction {
             kind: row.get(2)?,
             payee: row.get(3)?,
             note: row.get(4)?,
+            source: row.get(5)?,
+            source_profile: row.get(6)?,
         })
     }
 }

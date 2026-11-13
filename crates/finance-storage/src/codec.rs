@@ -6,7 +6,8 @@
 //! teaching this module about it is a compile error, not a silent default.
 
 use finance_core::{
-    AccountKind, CategoryKind, Currency, PostingTarget, TransactionKind, YearMonth,
+    AccountKind, CategoryKind, Currency, PostingTarget, TransactionKind, TransactionSource,
+    YearMonth,
 };
 use time::{Date, Month, OffsetDateTime};
 use uuid::Uuid;
@@ -172,6 +173,41 @@ pub(crate) fn parse_transaction_kind(
         other => Err(corrupt(
             table,
             format!("unknown transaction kind {other:?}"),
+        )),
+    }
+}
+
+/// A transaction source as its two columns: the kind, and the profile when the
+/// row came from an import.
+pub(crate) fn transaction_source(source: &TransactionSource) -> (&'static str, Option<&str>) {
+    match source {
+        TransactionSource::Manual => ("manual", None),
+        TransactionSource::Imported { profile } => ("imported", Some(profile.as_str())),
+    }
+}
+
+/// Rebuilds a transaction source, refusing the two shapes that cannot be true.
+pub(crate) fn parse_transaction_source(
+    text: &str,
+    profile: Option<&str>,
+    table: &'static str,
+) -> Result<TransactionSource, StoreError> {
+    match (text, profile) {
+        ("manual", None) => Ok(TransactionSource::Manual),
+        ("imported", Some(profile)) => Ok(TransactionSource::Imported {
+            profile: profile.to_owned(),
+        }),
+        ("manual", Some(_)) => Err(corrupt(
+            table,
+            "a manual transaction carries an import profile",
+        )),
+        ("imported", None) => Err(corrupt(
+            table,
+            "an imported transaction has no import profile",
+        )),
+        (other, _) => Err(corrupt(
+            table,
+            format!("unknown transaction source {other:?}"),
         )),
     }
 }

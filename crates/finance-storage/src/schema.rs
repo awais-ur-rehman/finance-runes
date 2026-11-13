@@ -76,8 +76,20 @@ CREATE INDEX postings_target ON postings (target_kind, target_id);
 CREATE INDEX transactions_live ON transactions (deleted_at, date);
 "#;
 
+/// Provenance: where a transaction came from (FR-036).
+///
+/// The default is `manual` so the rows already in a v1 dataset — all of which
+/// were typed in or written before provenance existed — stay truthful. The
+/// profile is kept beside the kind rather than in a separate table, because it
+/// is a name the import wrote, not a row with its own identity.
+const V2: &str = r#"
+ALTER TABLE transactions ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'
+    CHECK (source IN ('manual', 'imported'));
+ALTER TABLE transactions ADD COLUMN source_profile TEXT;
+"#;
+
 /// Every migration, oldest first. The index plus one is the schema version.
-const MIGRATIONS: &[&str] = &[V1];
+const MIGRATIONS: &[&str] = &[V1, V2];
 
 /// The version this build writes and the highest it can open.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;

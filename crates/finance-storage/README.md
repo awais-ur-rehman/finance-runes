@@ -1,13 +1,13 @@
 # finance-storage
 
-**Status:** in progress — schema v1, migrations, round-trip, soft delete, backup and restore done; CSV export and the pre-migration backup are pending
+**Status:** in progress — schema v2, migrations, round-trip, soft delete, backup and restore done; CSV export and the pre-migration backup are pending
 
 Persistence, and nothing else. Maps domain objects to rows and back, applies migrations, produces consistent backups.
 
 ## What exists
 
 - `Store::open` / `open_in_memory` — opens or creates a dataset, refuses a newer schema version, fixes the currency at open time.
-- Schema v1 — `schema_migrations`, `metadata`, `accounts`, `categories`, `transactions`, `postings`, `budgets`, all `STRICT`, with migrations applied one transaction at a time.
+- Schema v2 — `schema_migrations`, `metadata`, `accounts`, `categories`, `transactions`, `postings`, `budgets`, all `STRICT`, with migrations applied one transaction at a time. v2 adds provenance (`source`, `source_profile`) to `transactions` (FR-036).
 - `load` / `save` — the whole ledger in and out; a save replaces the live dataset inside one transaction and leaves soft-deleted rows alone.
 - `soft_delete_transaction` / `restore_transaction` / `deleted_transactions` — the undo trail (FR-014, Q-34).
 - `backup_to` / `backup_into` / `prune` — `VACUUM INTO` copies, named from their timestamp and schema version, ten kept (FR-080, FR-081, FR-086).
@@ -27,7 +27,7 @@ Backups are named `finance-YYYYMMDDTHHMMSSZ-v<schema>.db`, so a directory of the
 | `metadata` | Dataset currency, as a code and an exponent |
 | `accounts` | Real places money sits, with an archived flag |
 | `categories` | Two-level tree; `parent` is null at the top |
-| `transactions` | Date, kind, payee, note, and `deleted_at` for soft deletes |
+| `transactions` | Date, kind, payee, note, provenance (`source` + `source_profile`), and `deleted_at` for soft deletes |
 | `postings` | One row per leg: `account`, `category` or `opening`, plus integer minor units |
 | `budgets` | A limit per category, in force from a `YYYY-MM` period |
 
