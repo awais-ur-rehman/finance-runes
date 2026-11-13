@@ -83,6 +83,75 @@ fn fixture() -> Fixture {
 }
 
 #[test]
+fn a_batch_of_transactions_is_recorded_atomically() {
+    let mut fixture = fixture();
+    let before = fixture.ledger.clone();
+
+    let good = Transaction::expense(
+        transaction_id(1),
+        day(2),
+        fixture.bank,
+        fixture.food,
+        pkr(10_000),
+    )
+    .expect("the amount is positive");
+    let wrong_kind = Transaction::expense(
+        transaction_id(2),
+        day(3),
+        fixture.bank,
+        fixture.salary,
+        pkr(10_000),
+    )
+    .expect("the amount is positive");
+
+    let error = fixture
+        .ledger
+        .record_all([good, wrong_kind])
+        .expect_err("an expense cannot use an income category");
+
+    assert!(matches!(
+        error,
+        LedgerError::CategoryKindMismatch {
+            expected: CategoryKind::Expense,
+            found: CategoryKind::Income
+        }
+    ));
+    assert_eq!(
+        fixture.ledger, before,
+        "the first transaction must not survive a failed batch"
+    );
+}
+
+#[test]
+fn a_batch_of_valid_transactions_is_recorded() {
+    let mut fixture = fixture();
+
+    fixture
+        .ledger
+        .record_all([
+            Transaction::expense(
+                transaction_id(1),
+                day(2),
+                fixture.bank,
+                fixture.food,
+                pkr(10_000),
+            )
+            .expect("the amount is positive"),
+            Transaction::income(
+                transaction_id(2),
+                day(3),
+                fixture.bank,
+                fixture.salary,
+                pkr(50_000),
+            )
+            .expect("the amount is positive"),
+        ])
+        .expect("both transactions are valid");
+
+    assert_eq!(fixture.ledger.transactions().count(), 2);
+}
+
+#[test]
 fn a_month_summarises_income_and_expenses() {
     let mut fixture = fixture();
     let income = pkr(15_000_000); // 150,000.00

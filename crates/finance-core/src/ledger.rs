@@ -300,6 +300,30 @@ impl Ledger {
         Ok(())
     }
 
+    /// Records several transactions atomically: either all of them are accepted
+    /// or the ledger is left exactly as it was.
+    ///
+    /// The work happens on a copy, so a failure half way through cannot leave a
+    /// partial import behind (FR-034). At personal-finance sizes the copy costs
+    /// less than the bookkeeping needed to undo a partial append.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first error [`Self::record`] would return, including
+    /// [`LedgerError::DuplicateTransaction`] when two of the transactions share
+    /// an identifier.
+    pub fn record_all(
+        &mut self,
+        transactions: impl IntoIterator<Item = Transaction>,
+    ) -> Result<(), LedgerError> {
+        let mut candidate = self.clone();
+        for transaction in transactions {
+            candidate.record(transaction)?;
+        }
+        *self = candidate;
+        Ok(())
+    }
+
     /// An account's balance as of the end of `date`.
     ///
     /// # Errors
