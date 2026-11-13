@@ -14,6 +14,7 @@ Entries are written for the person using the app, not for the person who wrote t
 - Toolchain pinned to Rust 1.99.1 to match the Rune `dev` toolchain.
 - Import review use case: a parsed statement becomes one decision per row — a category, a transfer to another of your own accounts, or a skip — with duplicates skipped by default, remembered merchant and transfer choices, and a single atomic commit.
 - Remembered rules now outlive the import that taught them: the merchant → category and pattern → transfer choices are saved with your data, so the next import preselects the rows you have already filed once.
+- Export all data to plain CSV files plus a manifest, readable without this app and independent of the database engine.
 - Provenance: every transaction records whether you typed it in or imported it, and which import profile read it, so the register can say where a row came from.
 
 ### Notes
