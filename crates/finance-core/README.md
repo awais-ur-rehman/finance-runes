@@ -1,6 +1,7 @@
 # finance-core
 
-**Status:** planned — no code yet
+**Status:** in progress — money, accounts, categories, transactions, budgets and
+remembered rules are implemented; insights are not.
 
 The domain. Everything that must be true about money, independent of how it is stored or displayed.
 
@@ -11,6 +12,7 @@ The domain. Everything that must be true about money, independent of how it is s
 - `Transaction`, `Posting`, `Transfer`, `Split` and their invariants (ADR-0005).
 - `Category` hierarchy.
 - `Budget`, periods, rollover rules.
+- `Rule` — what the user taught the app about their own money, keyed on a merchant name or a transfer pattern (FR-033, ADR-0007).
 - Derived calculations: balances as of a date, cash flow, net worth, budget status.
 - Report queries, expressed as pure functions over a ledger.
 

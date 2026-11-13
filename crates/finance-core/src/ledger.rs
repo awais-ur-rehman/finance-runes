@@ -11,7 +11,7 @@ use crate::budget::{Budget, BudgetLine, BudgetReport, BudgetState};
 use crate::error::{LedgerError, MoneyError};
 use crate::{
     Account, AccountId, Category, CategoryId, CategoryKind, Currency, Money, PostingTarget,
-    Rounding, Transaction, TransactionId, TransactionKind,
+    Rounding, Rule, RuleKey, RuleTarget, Transaction, TransactionId, TransactionKind,
 };
 
 /// A calendar month, used for summaries, budgets and insights.
@@ -102,6 +102,10 @@ impl MonthSummary {
 }
 
 /// The record of everything that happened, and the views derived from it.
+///
+/// Rules live here too: they are what the user taught the app about their own
+/// money, so they are saved, backed up and restored with the history they
+/// classify (FR-033).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Ledger {
     currency: Currency,
@@ -109,6 +113,7 @@ pub struct Ledger {
     categories: BTreeMap<CategoryId, Category>,
     transactions: Vec<Transaction>,
     budgets: BTreeMap<(CategoryId, YearMonth), Budget>,
+    rules: BTreeMap<RuleKey, Rule>,
 }
 
 impl Ledger {
@@ -120,6 +125,7 @@ impl Ledger {
             categories: BTreeMap::new(),
             transactions: Vec::new(),
             budgets: BTreeMap::new(),
+            rules: BTreeMap::new(),
         }
     }
 
@@ -316,12 +322,76 @@ impl Ledger {
         &mut self,
         transactions: impl IntoIterator<Item = Transaction>,
     ) -> Result<(), LedgerError> {
+        self.apply(transactions, [])
+    }
+
+    /// Records transactions and rules in one batch, all or nothing.
+    ///
+    /// An import writes both: the rows the user filed, and what the app learned
+    /// while filing them. A commit that kept one and lost the other would either
+    /// forget a choice the user made or remember a choice about rows that were
+    /// never written, so they are applied together or not at all (FR-034).
+    ///
+    /// # Errors
+    ///
+    /// Returns the first error [`Self::record`] or [`Self::add_rule`] would
+    /// return.
+    pub fn apply(
+        &mut self,
+        transactions: impl IntoIterator<Item = Transaction>,
+        rules: impl IntoIterator<Item = Rule>,
+    ) -> Result<(), LedgerError> {
         let mut candidate = self.clone();
         for transaction in transactions {
             candidate.record(transaction)?;
         }
+        for rule in rules {
+            candidate.add_rule(rule)?;
+        }
         *self = candidate;
         Ok(())
+    }
+
+    /// All remembered rules, ordered by key so a save is deterministic.
+    pub fn rules(&self) -> impl Iterator<Item = &Rule> {
+        self.rules.values()
+    }
+
+    /// Looks up the rule for a key.
+    pub fn rule(&self, key: &RuleKey) -> Option<&Rule> {
+        self.rules.get(key)
+    }
+
+    /// Remembers a rule, replacing any rule about the same subject.
+    ///
+    /// Re-teaching a row changes the answer instead of stacking a second opinion
+    /// behind the first, which is why the key is the identity (FR-033).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LedgerError::UnknownAccount`] or
+    /// [`LedgerError::UnknownCategory`] when the target does not exist, so a rule
+    /// can never point at something the ledger cannot show.
+    pub fn add_rule(&mut self, rule: Rule) -> Result<(), LedgerError> {
+        match rule.target() {
+            RuleTarget::Account(id) => {
+                if !self.accounts.contains_key(&id) {
+                    return Err(LedgerError::UnknownAccount(id));
+                }
+            }
+            RuleTarget::Category(id) => {
+                if !self.categories.contains_key(&id) {
+                    return Err(LedgerError::UnknownCategory(id));
+                }
+            }
+        }
+        self.rules.insert(rule.key().clone(), rule);
+        Ok(())
+    }
+
+    /// Forgets the rule for a key. True when there was one.
+    pub fn remove_rule(&mut self, key: &RuleKey) -> bool {
+        self.rules.remove(key).is_some()
     }
 
     /// An account's balance as of the end of `date`.

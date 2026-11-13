@@ -6,7 +6,8 @@
 
 use finance_core::{
     Account, AccountId, AccountKind, Category, CategoryId, CategoryKind, Currency, Ledger,
-    LedgerError, Money, Transaction, TransactionError, TransactionId, TransactionSource, YearMonth,
+    LedgerError, Money, Rule, RuleKey, RuleTarget, Transaction, TransactionError, TransactionId,
+    TransactionSource, TransferPattern, YearMonth,
 };
 use time::{Date, Month};
 use uuid::Uuid;
@@ -196,6 +197,151 @@ fn a_transaction_records_where_it_came_from() {
             &TransactionSource::Manual
         ],
         "the ledger keeps the provenance it was given"
+    );
+}
+
+#[test]
+fn a_rule_is_remembered_until_it_is_replaced_or_forgotten() {
+    let mut fixture = fixture();
+    let key = RuleKey::merchant("  Sample Cafe ").expect("the name is not blank");
+    let first = Rule::new(key.clone(), RuleTarget::Category(fixture.food));
+    let second = Rule::new(key.clone(), RuleTarget::Category(fixture.groceries));
+
+    fixture.ledger.add_rule(first).expect("the category exists");
+    assert_eq!(
+        fixture
+            .ledger
+            .rule(&key)
+            .expect("the rule is remembered")
+            .target(),
+        RuleTarget::Category(fixture.food)
+    );
+
+    fixture
+        .ledger
+        .add_rule(second)
+        .expect("the category exists");
+    assert_eq!(
+        fixture.ledger.rules().count(),
+        1,
+        "re-teaching the same merchant replaces the answer"
+    );
+    assert_eq!(
+        fixture
+            .ledger
+            .rule(&key)
+            .expect("the rule is remembered")
+            .target(),
+        RuleTarget::Category(fixture.groceries)
+    );
+
+    assert!(fixture.ledger.remove_rule(&key), "the rule was there");
+    assert!(
+        !fixture.ledger.remove_rule(&key),
+        "the second removal is a no-op"
+    );
+    assert_eq!(fixture.ledger.rules().count(), 0);
+}
+
+#[test]
+fn a_rule_key_is_canonical() {
+    let key = RuleKey::merchant(" Sample Cafe ").expect("the name is not blank");
+
+    assert_eq!(key, RuleKey::merchant("sample cafe").expect("not blank"));
+    assert_eq!(
+        key,
+        RuleKey::merchant("SAMPLE CAFE").expect("not blank"),
+        "case and spacing do not make a second rule"
+    );
+    assert_eq!(
+        RuleKey::merchant("   "),
+        None,
+        "a blank key matches nothing"
+    );
+
+    let peer = TransferPattern::peer_transfer(Some(" sample account "));
+    assert_eq!(
+        peer,
+        TransferPattern::peer_transfer(Some("SAMPLE ACCOUNT")),
+        "the counterparty is canonical too"
+    );
+    assert_eq!(
+        TransferPattern::peer_transfer(Some("  ")),
+        TransferPattern::peer_transfer(None),
+        "a blank counterparty is no counterparty"
+    );
+    assert_eq!(
+        TransferPattern::CashWithdrawal.counterparty(),
+        None,
+        "a cash withdrawal names nobody"
+    );
+}
+
+#[test]
+fn a_rule_cannot_point_at_something_the_ledger_does_not_have() {
+    let mut fixture = fixture();
+
+    let error = fixture
+        .ledger
+        .add_rule(Rule::new(
+            RuleKey::transfer(TransferPattern::CashWithdrawal),
+            RuleTarget::Account(account_id(404)),
+        ))
+        .expect_err("the account is unknown");
+    assert!(matches!(
+        error,
+        LedgerError::UnknownAccount(id) if id == account_id(404)
+    ));
+
+    let error = fixture
+        .ledger
+        .add_rule(Rule::new(
+            RuleKey::merchant("Sample Cafe").expect("the name is not blank"),
+            RuleTarget::Category(category_id(404)),
+        ))
+        .expect_err("the category is unknown");
+    assert!(matches!(
+        error,
+        LedgerError::UnknownCategory(id) if id == category_id(404)
+    ));
+
+    assert_eq!(
+        fixture.ledger.rules().count(),
+        0,
+        "a refused rule is not remembered"
+    );
+}
+
+#[test]
+fn a_batch_of_transactions_and_rules_is_recorded_atomically() {
+    let mut fixture = fixture();
+    let before = fixture.ledger.clone();
+
+    let good = Transaction::expense(
+        transaction_id(1),
+        day(2),
+        fixture.bank,
+        fixture.food,
+        pkr(10_000),
+    )
+    .expect("the amount is positive");
+    let rule = Rule::new(
+        RuleKey::merchant("Sample Cafe").expect("the name is not blank"),
+        RuleTarget::Account(account_id(404)),
+    );
+
+    let error = fixture
+        .ledger
+        .apply([good], [rule])
+        .expect_err("the rule points at a missing account");
+
+    assert!(matches!(
+        error,
+        LedgerError::UnknownAccount(id) if id == account_id(404)
+    ));
+    assert_eq!(
+        fixture.ledger, before,
+        "the transaction must not survive a failed batch"
     );
 }
 

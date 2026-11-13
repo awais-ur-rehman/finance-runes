@@ -25,6 +25,7 @@ mod error;
 mod id;
 mod ledger;
 pub mod money;
+mod rule;
 mod transaction;
 
 pub use account::Account;
@@ -48,6 +49,10 @@ pub use ledger::YearMonth;
 pub use money::Currency;
 pub use money::Money;
 pub use money::Rounding;
+pub use rule::Rule;
+pub use rule::RuleKey;
+pub use rule::RuleTarget;
+pub use rule::TransferPattern;
 pub use transaction::Posting;
 pub use transaction::PostingTarget;
 pub use transaction::Transaction;
