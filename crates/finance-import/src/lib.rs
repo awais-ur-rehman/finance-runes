@@ -44,7 +44,6 @@ pub use duplicate::ReferenceKind;
 pub use error::ImportError;
 pub use error::RowIssue;
 pub use error::RowProblem;
-pub use merchant::TransferHint;
 pub use merchant::merchant;
 pub use merchant::transfer_hint;
 pub use preview::Preview;

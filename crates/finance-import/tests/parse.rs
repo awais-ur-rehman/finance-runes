@@ -4,10 +4,9 @@
 //! The real statement is not in this repository and never will be. See
 //! `docs/requirements/csv-import-profile.md`.
 
-use finance_core::{Currency, Money};
+use finance_core::{Currency, Money, TransferPattern};
 use finance_import::{
-    Direction, DuplicateKey, ImportError, Profile, ReferenceKind, RowProblem, Statement,
-    TransferHint, parse,
+    Direction, DuplicateKey, ImportError, Profile, ReferenceKind, RowProblem, Statement, parse,
 };
 use time::{Date, Month};
 
@@ -94,7 +93,7 @@ fn a_peer_transfer_is_a_hint_and_carries_a_reference() {
     assert_eq!(transfer.flow().amount(), pkr(500_000));
     assert_eq!(
         transfer.transfer_hint(),
-        Some(TransferHint::PeerTransfer {
+        Some(TransferPattern::PeerTransfer {
             counterparty: Some("SAMPLE HOLDER".to_owned()),
         })
     );

@@ -8,17 +8,7 @@
 //! The full description is never replaced by a hint. It is what the user
 //! recognises in the register, and it is what the duplicate check compares.
 
-/// A guess that a row is a transfer rather than income or spending.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TransferHint {
-    /// A cash withdrawal: the money is still the owner's, now in cash.
-    CashWithdrawal,
-    /// A transfer whose counterparty looks like the account holder.
-    PeerTransfer {
-        /// The counterparty, when it can be read out of the description.
-        counterparty: Option<String>,
-    },
-}
+use finance_core::TransferPattern;
 
 /// The shortened merchant name a card description carries, if any.
 ///
@@ -74,16 +64,19 @@ fn is_country_code(token: &str) -> bool {
 /// confirmed statement contains. A `P2P FT FROM` row is money arriving from the
 /// holder's other account, so importing it as income would overstate the savings
 /// rate by its full amount.
-pub fn transfer_hint(description: &str) -> Option<TransferHint> {
+///
+/// The answer is the domain's [`TransferPattern`], because a remembered rule is
+/// keyed on it (FR-033).
+pub fn transfer_hint(description: &str) -> Option<TransferPattern> {
     let upper = description.to_ascii_uppercase();
 
     if upper.contains("ATM CASH") {
-        return Some(TransferHint::CashWithdrawal);
+        return Some(TransferPattern::CashWithdrawal);
     }
     if upper.contains("P2P FT") || upper.contains("IBFT") {
-        return Some(TransferHint::PeerTransfer {
-            counterparty: counterparty(description),
-        });
+        return Some(TransferPattern::peer_transfer(
+            counterparty(description).as_deref(),
+        ));
     }
 
     None

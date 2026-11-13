@@ -6,13 +6,13 @@
 //! (FR-033). A statement can be previewed and thrown away without touching
 //! storage.
 
-use finance_core::{Currency, Money};
+use finance_core::{Currency, Money, TransferPattern};
 use time::Date;
 
 use crate::balance::{self, BalanceBreak};
 use crate::duplicate::{self, Duplicate, DuplicateKey};
 use crate::error::{ImportError, RowIssue};
-use crate::merchant::{self, TransferHint};
+use crate::merchant::{merchant, transfer_hint};
 use crate::preview::Preview;
 
 /// Which way money moved.
@@ -175,12 +175,12 @@ impl StatementRow {
 
     /// The shortened merchant name, when the description carries one.
     pub fn merchant(&self) -> Option<String> {
-        merchant::merchant(&self.description)
+        merchant(&self.description)
     }
 
     /// A guess that this row moves money between the owner's own accounts.
-    pub fn transfer_hint(&self) -> Option<TransferHint> {
-        merchant::transfer_hint(&self.description)
+    pub fn transfer_hint(&self) -> Option<TransferPattern> {
+        transfer_hint(&self.description)
     }
 
     /// The key used to recognise this row if it is imported twice (FR-035).

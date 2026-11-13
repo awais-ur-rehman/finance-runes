@@ -1,4 +1,5 @@
-use super::{TransferHint, merchant, transfer_hint};
+use super::{merchant, transfer_hint};
+use finance_core::TransferPattern;
 
 #[test]
 fn a_card_purchase_shortens_to_the_merchant() {
@@ -40,7 +41,7 @@ fn a_description_without_an_at_marker_has_no_merchant() {
 fn a_cash_withdrawal_looks_like_a_transfer() {
     assert_eq!(
         transfer_hint("ATM CASH WITHDRAWAL SAMPLE BRANCH"),
-        Some(TransferHint::CashWithdrawal),
+        Some(TransferPattern::CashWithdrawal),
         "the money is still the owner's, now in cash"
     );
 }
@@ -51,7 +52,7 @@ fn a_peer_transfer_names_its_counterparty() {
         transfer_hint(
             "RA AST P2P FT FROM SAMPLE HOLDER HBL ACCT: PK00TEST0000. **103 MSGID: MSG000000000000000001"
         ),
-        Some(TransferHint::PeerTransfer {
+        Some(TransferPattern::PeerTransfer {
             counterparty: Some("SAMPLE HOLDER".to_owned()),
         })
     );
@@ -61,7 +62,7 @@ fn a_peer_transfer_names_its_counterparty() {
 fn a_peer_transfer_without_a_counterparty_is_still_a_hint() {
     assert_eq!(
         transfer_hint("P2P FT TO SAMPLE ACCOUNT"),
-        Some(TransferHint::PeerTransfer { counterparty: None })
+        Some(TransferPattern::PeerTransfer { counterparty: None })
     );
 }
 

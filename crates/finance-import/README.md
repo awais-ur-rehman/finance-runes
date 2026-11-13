@@ -1,6 +1,6 @@
 # finance-import
 
-**Status:** in progress — the parser is done; the review screen and the commit step are pending
+**Status:** in progress — the parser is done; the review use case lives in `finance-app` and the Rune screen is pending
 
 Reading a bank statement into rows, and nothing else. No file access, no clock, no database: the caller reads bytes and passes them in, which is what makes the importer testable from a string literal.
 
@@ -10,7 +10,7 @@ Reading a bank statement into rows, and nothing else. No file access, no clock, 
 - `Profile` — a saved mapping of header names to date, description, instrument, debit/credit (or one signed amount) and balance. `Profile::bank_statement_debit_credit()` is the confirmed profile for the owner's bank.
 - `Statement` — the rows that became transactions, the opening balance, the rows that did not, the totals, the balance breaks and the within-file duplicates.
 - `Statement::preview()` — the aggregate FR-032 asks for: row count, date range, total in and out, final balance, unparseable rows with line numbers, the first balance break with both balances, duplicates and a count of suspected transfers.
-- `StatementRow::merchant()` and `::transfer_hint()` — the shortened card merchant and the "this may be a transfer" guess (FR-033).
+- `StatementRow::merchant()` and `::transfer_hint()` — the shortened card merchant and the "this may be a transfer" guess (FR-033). The hint is a [`TransferPattern`](../finance-core/src/rule.rs) from the domain, because a remembered rule is keyed on it (ADR-0007).
 - `DuplicateKey` — reference number when the bank gives one, otherwise date + signed amount + normalised description (FR-035).
 
 ## Pipeline
