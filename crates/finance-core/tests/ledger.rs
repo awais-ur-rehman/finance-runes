@@ -6,7 +6,7 @@
 
 use finance_core::{
     Account, AccountId, AccountKind, Category, CategoryId, CategoryKind, Currency, Ledger,
-    LedgerError, Money, Transaction, TransactionError, TransactionId, YearMonth,
+    LedgerError, Money, Transaction, TransactionError, TransactionId, TransactionSource, YearMonth,
 };
 use time::{Date, Month};
 use uuid::Uuid;
@@ -149,6 +149,54 @@ fn a_batch_of_valid_transactions_is_recorded() {
         .expect("both transactions are valid");
 
     assert_eq!(fixture.ledger.transactions().count(), 2);
+}
+
+#[test]
+fn a_transaction_records_where_it_came_from() {
+    let mut fixture = fixture();
+    let profile = "bank-statement-debit-credit";
+    let imported = Transaction::expense(
+        transaction_id(1),
+        day(2),
+        fixture.bank,
+        fixture.food,
+        pkr(10_000),
+    )
+    .expect("the amount is positive")
+    .with_source(TransactionSource::Imported {
+        profile: profile.to_owned(),
+    });
+    let manual = Transaction::expense(
+        transaction_id(2),
+        day(3),
+        fixture.bank,
+        fixture.food,
+        pkr(20_000),
+    )
+    .expect("the amount is positive");
+
+    assert_eq!(manual.source(), &TransactionSource::Manual);
+
+    fixture
+        .ledger
+        .record_all([imported, manual])
+        .expect("both transactions are valid");
+
+    let sources: Vec<&TransactionSource> = fixture
+        .ledger
+        .transactions()
+        .map(Transaction::source)
+        .collect();
+    assert_eq!(
+        sources,
+        vec![
+            &TransactionSource::Imported {
+                profile: profile.to_owned()
+            },
+            &TransactionSource::Manual
+        ],
+        "the ledger keeps the provenance it was given"
+    );
 }
 
 #[test]

@@ -52,3 +52,4 @@ pub use transaction::Posting;
 pub use transaction::PostingTarget;
 pub use transaction::Transaction;
 pub use transaction::TransactionKind;
+pub use transaction::TransactionSource;

@@ -69,6 +69,24 @@ impl std::fmt::Display for TransactionKind {
     }
 }
 
+/// Where a transaction came from.
+///
+/// The source is provenance, not behaviour: an imported transaction is edited,
+/// deleted and reported exactly like a typed one (FR-036). It exists so the
+/// register can say where a row came from and so a future re-import can reason
+/// about what it already wrote.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum TransactionSource {
+    /// Entered by the user.
+    Manual,
+
+    /// Read from a statement, by the named import profile that read it.
+    Imported {
+        /// The profile's name, such as `bank-statement-debit-credit`.
+        profile: String,
+    },
+}
+
 /// A dated event that moves money.
 ///
 /// Construction guarantees the postings are balanced and share one currency.
@@ -79,6 +97,7 @@ pub struct Transaction {
     id: TransactionId,
     date: Date,
     kind: TransactionKind,
+    source: TransactionSource,
     payee: Option<String>,
     note: Option<String>,
     postings: Vec<Posting>,
@@ -129,6 +148,7 @@ impl Transaction {
             id,
             date,
             kind,
+            source: TransactionSource::Manual,
             payee: None,
             note: None,
             postings,
@@ -246,6 +266,13 @@ impl Transaction {
         self
     }
 
+    /// Attaches where the transaction came from.
+    #[must_use]
+    pub fn with_source(mut self, source: TransactionSource) -> Self {
+        self.source = source;
+        self
+    }
+
     /// Attaches a free-text note.
     #[must_use]
     pub fn with_note(mut self, note: impl Into<String>) -> Self {
@@ -266,6 +293,11 @@ impl Transaction {
     /// The business meaning of the transaction.
     pub const fn kind(&self) -> TransactionKind {
         self.kind
+    }
+
+    /// Where the transaction came from.
+    pub const fn source(&self) -> &TransactionSource {
+        &self.source
     }
 
     /// The merchant or income source, if recorded.
