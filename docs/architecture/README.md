@@ -74,6 +74,7 @@ Invariants that the type system or constructors enforce:
 3. A transfer's two postings reference different accounts and the same amount.
 4. A posting's currency equals its account's currency.
 5. Deleting an account with history is impossible; archive instead.
+6. A remembered rule's target exists, and its key is canonical, so one merchant or transfer pattern has one rule (ADR-0007).
 
 ## Data flow
 
@@ -122,6 +123,7 @@ Recorded as ADRs in [`decisions/`](decisions/). Accepted decisions are immutable
 | [0004](decisions/0004-local-first-storage.md) | Local-first, single file, SQLite | Accepted |
 | [0005](decisions/0005-ledger-model.md) | Double-entry ledger behind a simple UI | Accepted |
 | [0006](decisions/0006-insights-engine.md) | Deterministic insights, seam for an assistant | Accepted |
+| [0007](decisions/0007-remembered-rules.md) | Remembered rules are dataset state | Accepted |
 
 ## Still to design
 

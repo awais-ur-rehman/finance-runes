@@ -2,7 +2,7 @@
 
 A local-first personal finance manager — accounts, transactions, budgets and reports — built as a native desktop app in Rust on [Rune](https://github.com/anomalyco/rune).
 
-> **Status: early implementation.** Requirements and architecture decisions are accepted (see `docs/`). The workspace exists: `finance-core` implements money, accounts, categories, transactions, budgets and the ledger, `finance-storage` persists them in SQLite (schema v2, with provenance), `finance-import` reads a bank statement CSV, and `finance-app` holds the import review use case. The UI is next.
+> **Status: early implementation.** Requirements and architecture decisions are accepted (see `docs/`). The workspace exists: `finance-core` implements money, accounts, categories, transactions, budgets, remembered rules and the ledger, `finance-storage` persists them in SQLite (schema v3), `finance-import` reads a bank statement CSV, and `finance-app` holds the import review use case. The UI is next.
 
 ---
 
@@ -121,7 +121,7 @@ Start at [`docs/README.md`](docs/README.md) for the full index. The short versio
 | 2 | Architecture sign-off (ADR-0004), workspace created | ✅ done |
 | 3 | `finance-core`: money, accounts, transactions, categories, budgets | ✅ done |
 | 4 | Storage adapter, migrations, backup/restore | 🔄 backups and restore done; export (FR-083) and the pre-migration backup pending |
-| 5 | CSV import pipeline and review screen | 🔄 parser, preview, hints, the review use case and import provenance done; Rune screen and remembered-rule persistence pending |
+| 5 | CSV import pipeline and review screen | 🔄 parser, preview, hints, the review use case, import provenance and remembered-rule persistence done; Rune screen pending |
 | 6 | Rune UI: entry, register, month view | ⬜ |
 | 7 | Insights engine and month-end summary | ⬜ |
 | 8 | Packaging for Windows / macOS / Linux | ⬜ |
