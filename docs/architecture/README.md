@@ -1,7 +1,7 @@
 # Architecture
 
 **Status:** proposal — depends on Q-01…Q-04 in [open questions](../requirements/open-questions.md)
-**Last updated:** 2026-11-12
+**Last updated:** 2026-11-13
 
 ## Shape
 
@@ -45,11 +45,17 @@ Hexagonal, with the domain at the centre and everything else pluggable:
 | --- | --- | --- | --- |
 | `finance-core` | Money, ledger, accounts, categories, budgets, invariants, pure report queries | `std` only (exceptions need an ADR) | I/O, UI, clock, randomness, logging |
 | `finance-import` | Parse bank exports into rows: header location, balance continuity, duplicates, merchant and transfer hints | `finance-core`, a CSV reader | Touch the filesystem, read the clock, or write to storage |
+| `finance-app` | Use cases: the import review, its plan and its atomic commit | `finance-core`, `finance-import` | I/O, UI, clock, randomness |
 | `finance-storage` | Persistence, migrations, backup, integrity checks | `finance-core`, a DB driver | Contain business rules |
 | `finance-ui` | Rune views, view models, theming, input, formatting | `finance-core`, application layer, `rune`, `rune-kit` | Own business logic or touch files |
-| `finance-app` (bin) | Composition root: wires adapters, owns the window, loads config | everything | Contain domain rules |
+| `finance` (bin) | Composition root: wires adapters, owns the window, loads config | everything | Contain domain rules |
 
-The application layer (use cases) may start as a module inside `finance-core` or a thin `finance-app`-owned module. Split it into its own crate only when it earns it — see [ADR-0002](decisions/0002-rust-and-rune.md).
+The application layer lives in `finance-app` rather than as a module inside
+`finance-core`. A review screen is a sequence of decisions taken before anything
+is written — pick a category, mark a transfer, skip a duplicate — and that
+sequence is business logic: it needs tests without a window, and it must not be
+able to change when Rune does. Keeping it out of `finance-core` also keeps the
+CSV dependency out of the domain (ADR-0002).
 
 ## Core model (proposed)
 

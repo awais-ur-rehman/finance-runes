@@ -12,10 +12,11 @@ Entries are written for the person using the app, not for the person who wrote t
 
 - Repository scaffold: project brief, requirement documents, architecture decision records, engineering standards, and issue/PR templates.
 - Toolchain pinned to Rust 1.99.1 to match the Rune `dev` toolchain.
+- Import review use case: a parsed statement becomes one decision per row — a category, a transfer to another of your own accounts, or a skip — with duplicates skipped by default, remembered merchant and transfer choices, and a single atomic commit.
 
 ### Notes
 
-- No UI yet. The domain, storage and import crates are in place; see the [roadmap](README.md#roadmap).
+- No UI yet. The domain, storage, import and application crates are in place; see the [roadmap](README.md#roadmap).
 
 <!--
 ## [0.1.0] - YYYY-MM-DD
