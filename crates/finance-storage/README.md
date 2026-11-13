@@ -1,6 +1,6 @@
 # finance-storage
 
-**Status:** in progress — schema v3, migrations, round-trip, soft delete, backup and restore done; CSV export and the pre-migration backup are pending
+**Status:** in progress — schema v3, migrations, round-trip, soft delete, backup, restore and CSV export done; the pre-migration backup is pending
 
 Persistence, and nothing else. Maps domain objects to rows and back, applies migrations, produces consistent backups.
 
@@ -12,6 +12,7 @@ Persistence, and nothing else. Maps domain objects to rows and back, applies mig
 - `soft_delete_transaction` / `restore_transaction` / `deleted_transactions` — the undo trail (FR-014, Q-34).
 - `backup_to` / `backup_into` / `prune` — `VACUUM INTO` copies, named from their timestamp and schema version, ten kept (FR-080, FR-081, FR-086).
 - `restore` — validates version and integrity, then swaps the file through a temporary copy (FR-082).
+- `export_into` — every table to plain CSV files plus a manifest, in one new directory (FR-083).
 - `integrity_check` — reports problems and changes nothing (FR-085).
 - `needs_backup` — whether anything was written since the last backup, so exit can skip an empty one.
 
@@ -34,12 +35,35 @@ Backups are named `finance-YYYYMMDDTHHMMSSZ-v<schema>.db`, so a directory of the
 
 Money is always an integer count of minor units plus a currency code, never a float (ADR-0003). The opening-balance target has no identifier, which is why `postings` carries a discriminator and a nullable identifier instead of a foreign key.
 
+## Export format
+
+`Store::export_into(parent, at)` writes one directory named `finance-export-YYYYMMDDTHHMMSSZ`, holding one file per table plus `manifest.csv`. The files are written into `<name>.partial` and the directory is renamed when every file is complete, so an interrupted export is never mistaken for a finished one.
+
+| File | Columns |
+| --- | --- |
+| `accounts.csv` | `id,name,kind,currency_code,currency_exponent,archived` |
+| `categories.csv` | `id,name,kind,parent_id` |
+| `transactions.csv` | `id,date,kind,payee,note,source,source_profile,deleted_at` |
+| `postings.csv` | `transaction_id,position,target_kind,target_id,amount,currency_code` |
+| `budgets.csv` | `category_id,effective_from,amount,currency_code` |
+| `rules.csv` | `key_kind,merchant,pattern,counterparty,target_kind,target_id` |
+| `manifest.csv` | `key,value` |
+
+- **Money is plain decimal text** (`-1250.00`, `1.234`), beside its currency code, so a spreadsheet reads it without knowing about minor units. The exponent is in the manifest and in every account row.
+- **Soft-deleted transactions are included**, with their deletion time (Q-34). The export is the copy the user keeps; hiding a deletion marker would make it lossy.
+- **The manifest** carries `format_version`, `schema_version`, `created_at` (RFC 3339), `currency_code`, `currency_exponent`, and one `<file>.rows` entry per file, so a reader can check that nothing was truncated.
+- **An empty optional field is an empty string**, never the text `null`.
+- A second export at the same moment is refused rather than overwriting the first.
+
+The layout is versioned by `FORMAT_VERSION` and does not depend on SQLite: the data can be read by any CSV reader, and a future engine would export the same files.
+
 ## Owns
 
 - The SQLite adapter (ADR-0004), one file per dataset.
 - Schema definitions and the migration runner, versioned and forward-only.
 - Repository implementations behind traits defined by the application layer.
 - Consistent backup (`VACUUM INTO`), restore with version and integrity checks.
+- The documented CSV export, independent of the engine (FR-083).
 - Integrity verification and the on-disk layout documentation.
 
 ## Must not

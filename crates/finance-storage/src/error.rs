@@ -58,6 +58,17 @@ pub enum StoreError {
         path: PathBuf,
     },
 
+    /// The directory an export would write to already exists.
+    #[error("a directory already exists at {}", .path.display())]
+    ExportExists {
+        /// The path that is already taken.
+        path: PathBuf,
+    },
+
+    /// A CSV file of an export could not be written.
+    #[error("the export could not be written: {0}")]
+    Csv(#[from] csv::Error),
+
     /// A path could not be used as text.
     #[error("the path {} cannot be used as text", .0.display())]
     InvalidPath(PathBuf),

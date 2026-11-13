@@ -214,6 +214,7 @@ dependencies = [
 name = "finance-storage"
 version = "0.1.0"
 dependencies = [
+ "csv",
  "finance-core",
  "rusqlite",
  "tempfile",

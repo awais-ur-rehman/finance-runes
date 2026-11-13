@@ -16,11 +16,13 @@
 //! save.
 //!
 //! Backups are single files with no sidecars, and restoring one validates the
-//! candidate before it replaces anything.
+//! candidate before it replaces anything. Exports are plain CSV, so the data
+//! outlives the engine as well as the binary (FR-083).
 
 mod backup;
 mod codec;
 mod error;
+mod export;
 mod integrity;
 mod schema;
 mod store;
@@ -32,5 +34,10 @@ pub use backup::is_backup_name;
 pub use backup::prune;
 pub use backup::restore;
 pub use error::StoreError;
+pub use export::Export;
+pub use export::ExportFile;
+pub use export::FORMAT_VERSION;
+pub use export::MANIFEST;
+pub use export::directory_name;
 pub use integrity::IntegrityReport;
 pub use store::Store;

@@ -8,6 +8,7 @@ authors.workspace = true
 repository.workspace = true
 
 [dependencies]
+csv = { workspace = true }
 finance-core = { path = "../finance-core" }
 rusqlite = { version = "0.42.0", features = ["bundled"] }
 thiserror = { workspace = true }

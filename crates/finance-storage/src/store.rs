@@ -13,6 +13,7 @@ use time::OffsetDateTime;
 use crate::StoreError;
 use crate::backup::{self, Backup};
 use crate::codec;
+use crate::export::{self, Export};
 use crate::integrity::{self, IntegrityReport};
 use crate::schema;
 
@@ -168,6 +169,28 @@ impl Store {
         backup::prune(directory, backup::KEEP_BACKUPS)?;
 
         Ok(written)
+    }
+
+    /// Writes every table to documented CSV files in a new directory under
+    /// `parent` (FR-083).
+    ///
+    /// The directory is named from `at`, so a second export at the same moment is
+    /// refused rather than overwriting the first. Soft-deleted transactions are
+    /// included with their deletion time, because the export is the copy the user
+    /// keeps (Q-34).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StoreError::ExportExists`] when the directory is already taken,
+    /// [`StoreError::Io`] if it cannot be created or renamed, and
+    /// [`StoreError::Csv`] or [`StoreError::Database`] if a file cannot be
+    /// written. A failed export leaves no partial directory behind.
+    pub fn export_into(
+        &self,
+        parent: impl AsRef<Path>,
+        at: OffsetDateTime,
+    ) -> Result<Export, StoreError> {
+        export::write(&self.connection, self.currency, parent.as_ref(), at)
     }
 
     /// Reads the whole dataset.
