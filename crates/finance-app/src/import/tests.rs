@@ -7,13 +7,14 @@
 
 use finance_core::{
     Account, AccountId, AccountKind, Category, CategoryId, CategoryKind, Currency, Ledger,
-    LedgerError, Money, Transaction, TransactionId, TransactionKind, TransactionSource,
+    LedgerError, Money, Rule, RuleKey, RuleTarget, Transaction, TransactionId, TransactionKind,
+    TransactionSource, TransferPattern,
 };
 use finance_import::{Profile, parse};
 use time::{Date, Month};
 use uuid::Uuid;
 
-use super::{Decision, DuplicateState, Entry, ImportSession, Rule, SkipReason};
+use super::{Decision, DuplicateState, Entry, ImportSession, SkipReason};
 use crate::SessionError;
 
 const FIXTURE: &str = "\
@@ -266,7 +267,10 @@ fn a_cash_withdrawal_choice_is_preselected_for_later_withdrawals() {
         .set_decision(0, Decision::Post(Entry::Transfer(fixture.cash)))
         .expect("the row exists");
 
-    assert!(matches!(session.rules()[0], Rule::Transfer { .. }));
+    assert!(matches!(
+        session.rules()[0].key(),
+        RuleKey::Transfer(TransferPattern::CashWithdrawal)
+    ));
     assert_eq!(
         session.rows()[1].decision(),
         Decision::Post(Entry::Transfer(fixture.cash))
@@ -326,6 +330,56 @@ fn clearing_the_rules_returns_suggested_rows_to_undecided() {
     );
     assert_eq!(session.rows()[1].decision(), Decision::Undecided);
     assert_eq!(session.rows()[1].suggestion(), None);
+}
+
+#[test]
+fn a_rule_the_ledger_remembers_preselects_rows_before_the_user_starts() {
+    let mut fixture = fixture();
+    let key = RuleKey::merchant("Sample Cafe").expect("the name is not blank");
+    fixture
+        .ledger
+        .add_rule(Rule::new(
+            key.clone(),
+            RuleTarget::Category(fixture.groceries),
+        ))
+        .expect("the category exists");
+
+    let session = review(&fixture, MERCHANTS);
+
+    assert_eq!(
+        session.rules(),
+        &[Rule::new(key, RuleTarget::Category(fixture.groceries))],
+        "the session starts from what the dataset remembers"
+    );
+    assert_eq!(
+        session.rows()[0].decision(),
+        Decision::Post(Entry::Category(fixture.groceries)),
+        "the user does not have to file a row the app already knows"
+    );
+    assert!(session.rows()[1].is_decided_by_rule());
+}
+
+#[test]
+fn a_commit_saves_the_rules_it_taught() {
+    let mut fixture = fixture();
+    let mut session = review(&fixture, MERCHANTS);
+    let key = RuleKey::merchant("Sample Cafe").expect("the name is not blank");
+
+    session
+        .set_decision(0, Decision::Post(Entry::Category(fixture.groceries)))
+        .expect("the row exists");
+    session
+        .commit(&mut fixture.ledger, ids())
+        .expect("every row is decided and valid");
+
+    assert_eq!(
+        fixture
+            .ledger
+            .rule(&key)
+            .expect("the rule outlives the session")
+            .target(),
+        RuleTarget::Category(fixture.groceries)
+    );
 }
 
 #[test]

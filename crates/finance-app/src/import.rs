@@ -12,8 +12,9 @@
 //! - **An undecided row is never guessed at.** Committing with one left fails
 //!   instead of filing it under a category the user did not choose.
 //! - **A commit is all or nothing** (FR-034). Rows are built first, then handed
-//!   to [`Ledger::record_all`](finance_core::Ledger::record_all), so a failure
-//!   half way through leaves no partial import.
+//!   to [`Ledger::apply`](finance_core::Ledger::apply) with the rules the review
+//!   taught, so a failure half way through leaves neither a partial import nor a
+//!   half-remembered rule.
 
 mod decision;
 mod plan;
@@ -28,6 +29,5 @@ pub use decision::Entry;
 pub use decision::SkipReason;
 pub use plan::ImportPlan;
 pub use plan::ImportReport;
-pub use rule::Rule;
 pub use session::ImportSession;
 pub use session::ReviewRow;

@@ -3,15 +3,15 @@
 use std::collections::{HashMap, HashSet};
 
 use finance_core::{
-    AccountId, Currency, Ledger, Money, PostingTarget, Transaction, TransactionId, TransactionKind,
-    TransactionSource,
+    AccountId, Currency, Ledger, Money, PostingTarget, Rule, Transaction, TransactionId,
+    TransactionKind, TransactionSource, TransferPattern,
 };
-use finance_import::{DuplicateKey, Statement, StatementRow, TransferHint};
+use finance_import::{DuplicateKey, Statement, StatementRow};
 
 use crate::error::SessionError;
 use crate::import::decision::{Decision, DuplicateState, Entry, SkipReason};
 use crate::import::plan::{ImportPlan, ImportReport};
-use crate::import::rule::Rule;
+use crate::import::rule;
 
 /// One row of the review list: what the file said, what is known about it, and
 /// what the user decided.
@@ -51,7 +51,7 @@ impl ReviewRow {
     }
 
     /// The guess that this row moves money between the owner's own accounts.
-    pub fn transfer_hint(&self) -> Option<TransferHint> {
+    pub fn transfer_hint(&self) -> Option<TransferPattern> {
         self.row.transfer_hint()
     }
 
@@ -100,7 +100,8 @@ impl ImportSession {
     ///
     /// Rows that already exist in the ledger are skipped by default, as FR-035
     /// asks; the user can still post them. Every other row starts undecided,
-    /// because filing a row under a category nobody chose is worse than asking.
+    /// because filing a row under a category nobody chose is worse than asking —
+    /// unless a rule the ledger already remembers matches it (FR-033).
     ///
     /// # Errors
     ///
@@ -165,14 +166,18 @@ impl ImportSession {
                 .transactions()
                 .any(|transaction| is_opening_for(transaction, account));
 
-        Ok(Self {
+        let mut session = Self {
             account,
             statement,
             rows,
-            rules: Vec::new(),
+            rules: ledger.rules().cloned().collect(),
             records_opening,
             committed: false,
-        })
+        };
+        // The rules the dataset remembers preselect the rows they match, so an
+        // import the app has seen before needs fewer decisions.
+        session.apply_rules();
+        Ok(session)
     }
 
     /// The account the rows will be filed under (FR-038).
@@ -217,7 +222,7 @@ impl ImportSession {
         }
 
         let learned = match decision {
-            Decision::Post(entry) => Rule::learned_from(&row.row, entry),
+            Decision::Post(entry) => rule::learned_from(&row.row, entry),
             Decision::Skip(_) | Decision::Undecided => None,
         };
 
@@ -238,7 +243,7 @@ impl ImportSession {
     /// one, so re-teaching a row changes the answer instead of stacking a second
     /// opinion behind the first.
     pub fn remember(&mut self, rule: Rule) {
-        self.rules.retain(|existing| !existing.same_subject(&rule));
+        self.rules.retain(|existing| existing.key() != rule.key());
         self.rules.push(rule);
         self.apply_rules();
     }
@@ -308,11 +313,12 @@ impl ImportSession {
         })
     }
 
-    /// Writes every posted row and the opening balance in one batch.
+    /// Writes every posted row, the opening balance and the rules the review
+    /// taught in one batch.
     ///
-    /// The batch is all or nothing (FR-034): if the ledger refuses any row, none
-    /// of them is written and the session stays usable, so the user can fix the
-    /// row and try again.
+    /// The batch is all or nothing (FR-034): if the ledger refuses any row or
+    /// rule, none of them is written and the session stays usable, so the user
+    /// can fix the row and try again.
     ///
     /// `next_id` supplies a transaction id for each row; the session never
     /// generates one itself, so a test can predict every id it writes.
@@ -391,7 +397,7 @@ impl ImportSession {
             }
         }
 
-        ledger.record_all(transactions)?;
+        ledger.apply(transactions, self.rules.iter().cloned())?;
         self.committed = true;
 
         Ok(ImportReport::new(
@@ -419,7 +425,10 @@ impl ImportSession {
     fn apply_rules(&mut self) {
         let rules = &self.rules;
         for row in &mut self.rows {
-            row.suggestion = rules.iter().rev().find_map(|rule| rule.apply(&row.row));
+            row.suggestion = rules
+                .iter()
+                .rev()
+                .find_map(|rule| rule::apply(rule, &row.row));
 
             let follows_rules = row.by_rule || matches!(row.decision, Decision::Undecided);
             if !follows_rules {

@@ -6,7 +6,7 @@
 //! income or a transfer in. That removes a whole class of "the balance went the
 //! wrong way" bug from the review screen.
 
-use finance_core::{AccountId, CategoryId};
+use finance_core::{AccountId, CategoryId, RuleTarget};
 
 /// What a reviewed row becomes in the ledger.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -19,6 +19,24 @@ pub enum Entry {
     /// accounts. A cash withdrawal is this with the cash account as the other
     /// side; a peer transfer in is this with the account it came from.
     Transfer(AccountId),
+}
+
+impl From<Entry> for RuleTarget {
+    fn from(entry: Entry) -> Self {
+        match entry {
+            Entry::Category(id) => Self::Category(id),
+            Entry::Transfer(id) => Self::Account(id),
+        }
+    }
+}
+
+impl From<RuleTarget> for Entry {
+    fn from(target: RuleTarget) -> Self {
+        match target {
+            RuleTarget::Category(id) => Self::Category(id),
+            RuleTarget::Account(id) => Self::Transfer(id),
+        }
+    }
 }
 
 /// Why a row repeats something already recorded.

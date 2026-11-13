@@ -39,17 +39,20 @@ shape it:
    not a gate.
 2. **An undecided row is never guessed at.** Every other row starts undecided and
    a commit refuses to run until each one has a category or a transfer. Filing a
-   row under a category nobody chose is worse than asking.
+   row under a category nobody chose is worse than asking. A row a remembered
+   rule already matches is the exception: the rule *is* the user's earlier answer.
 3. **A commit is all or nothing** (FR-034). Rows are built first and handed to
-   `Ledger::record_all`, so a failure half way through leaves no partial import.
+   `Ledger::apply` together with the rules the review taught, so a failure half
+   way through leaves neither a partial import nor a half-remembered rule.
 
 Deciding a row teaches the session (FR-033): a card row remembers its merchant,
 and a cash withdrawal or peer transfer remembers its pattern, never the whole
 description. A description can carry an account number, and a rule keyed on one
 would both stop matching the next transfer and copy the number into later rows.
-Later rows that look the same are preselected; a row the user decided is never
-overwritten. `clear_rules` returns the rows a rule decided to undecided and keeps
-the user's own choices.
+The rule itself is domain state (`finance_core::Rule`), saved with the ledger, so
+the next review starts from what the dataset remembers. Later rows that look the
+same are preselected; a row the user decided is never overwritten. `clear_rules`
+returns the rows a rule decided to undecided and keeps the user's own choices.
 
 `plan()` is what the review screen shows before writing: rows, duplicates, rows
 to post, rows skipped, rows undecided, transfers, and the in and out totals for
@@ -67,6 +70,6 @@ what it wrote.
 
 `src/import/tests.rs` runs the confirmed statement shape end to end: duplicate
 detection against the ledger and within the file, rule learning and clearing,
-plan totals, the opening balance, a refused batch leaving the ledger untouched,
-and committing twice. Fixtures are synthetic; see
-`docs/requirements/csv-import-profile.md`.
+rules the ledger already remembers, plan totals, the opening balance, a refused
+batch leaving the ledger untouched, and committing twice. Fixtures are synthetic;
+see `docs/requirements/csv-import-profile.md`.
