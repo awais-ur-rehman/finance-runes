@@ -1,6 +1,11 @@
 [workspace]
 resolver = "3"
-members = ["crates/finance-core", "crates/finance-import", "crates/finance-storage"]
+members = [
+    "crates/finance-app",
+    "crates/finance-core",
+    "crates/finance-import",
+    "crates/finance-storage",
+]
 
 [workspace.package]
 version = "0.1.0"
