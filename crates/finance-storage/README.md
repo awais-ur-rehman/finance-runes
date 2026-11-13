@@ -1,13 +1,13 @@
 # finance-storage
 
-**Status:** in progress — schema v2, migrations, round-trip, soft delete, backup and restore done; CSV export and the pre-migration backup are pending
+**Status:** in progress — schema v3, migrations, round-trip, soft delete, backup and restore done; CSV export and the pre-migration backup are pending
 
 Persistence, and nothing else. Maps domain objects to rows and back, applies migrations, produces consistent backups.
 
 ## What exists
 
 - `Store::open` / `open_in_memory` — opens or creates a dataset, refuses a newer schema version, fixes the currency at open time.
-- Schema v2 — `schema_migrations`, `metadata`, `accounts`, `categories`, `transactions`, `postings`, `budgets`, all `STRICT`, with migrations applied one transaction at a time. v2 adds provenance (`source`, `source_profile`) to `transactions` (FR-036).
+- Schema v3 — `schema_migrations`, `metadata`, `accounts`, `categories`, `transactions`, `postings`, `budgets`, `rules`, all `STRICT`, with migrations applied one transaction at a time. v2 adds provenance (`source`, `source_profile`) to `transactions` (FR-036); v3 adds the remembered rules (FR-033).
 - `load` / `save` — the whole ledger in and out; a save replaces the live dataset inside one transaction and leaves soft-deleted rows alone.
 - `soft_delete_transaction` / `restore_transaction` / `deleted_transactions` — the undo trail (FR-014, Q-34).
 - `backup_to` / `backup_into` / `prune` — `VACUUM INTO` copies, named from their timestamp and schema version, ten kept (FR-080, FR-081, FR-086).
@@ -30,6 +30,7 @@ Backups are named `finance-YYYYMMDDTHHMMSSZ-v<schema>.db`, so a directory of the
 | `transactions` | Date, kind, payee, note, provenance (`source` + `source_profile`), and `deleted_at` for soft deletes |
 | `postings` | One row per leg: `account`, `category` or `opening`, plus integer minor units |
 | `budgets` | A limit per category, in force from a `YYYY-MM` period |
+| `rules` | A remembered merchant or transfer pattern and what a matching row becomes |
 
 Money is always an integer count of minor units plus a currency code, never a float (ADR-0003). The opening-balance target has no identifier, which is why `postings` carries a discriminator and a nullable identifier instead of a foreign key.
 

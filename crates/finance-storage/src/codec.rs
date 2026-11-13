@@ -6,8 +6,8 @@
 //! teaching this module about it is a compile error, not a silent default.
 
 use finance_core::{
-    AccountKind, CategoryKind, Currency, PostingTarget, TransactionKind, TransactionSource,
-    YearMonth,
+    AccountId, AccountKind, CategoryId, CategoryKind, Currency, PostingTarget, RuleKey, RuleTarget,
+    TransactionKind, TransactionSource, TransferPattern, YearMonth,
 };
 use time::{Date, Month, OffsetDateTime};
 use uuid::Uuid;
@@ -208,6 +208,75 @@ pub(crate) fn parse_transaction_source(
         (other, _) => Err(corrupt(
             table,
             format!("unknown transaction source {other:?}"),
+        )),
+    }
+}
+
+/// A rule key as its four stored columns: the kind, and the three parts of the
+/// key that the kind decides.
+pub(crate) fn rule_key(key: &RuleKey) -> (&'static str, &str, &'static str, &str) {
+    match key {
+        RuleKey::Merchant(name) => ("merchant", name, "", ""),
+        RuleKey::Transfer(TransferPattern::CashWithdrawal) => {
+            ("transfer", "", "cash_withdrawal", "")
+        }
+        RuleKey::Transfer(TransferPattern::PeerTransfer { counterparty }) => (
+            "transfer",
+            "",
+            "peer_transfer",
+            counterparty.as_deref().unwrap_or(""),
+        ),
+    }
+}
+
+/// Rebuilds a rule key, refusing a row whose parts do not fit either kind.
+pub(crate) fn parse_rule_key(
+    key_kind: &str,
+    merchant: &str,
+    pattern: &str,
+    counterparty: &str,
+    table: &'static str,
+) -> Result<RuleKey, StoreError> {
+    match (key_kind, merchant, pattern, counterparty) {
+        ("merchant", name, "", "") => RuleKey::merchant(name)
+            .ok_or_else(|| corrupt(table, "a merchant rule has a blank merchant")),
+        ("transfer", "", "cash_withdrawal", "") => {
+            Ok(RuleKey::transfer(TransferPattern::CashWithdrawal))
+        }
+        ("transfer", "", "peer_transfer", named) => Ok(RuleKey::transfer(
+            TransferPattern::peer_transfer(Some(named)),
+        )),
+        _ => Err(corrupt(
+            table,
+            format!(
+                "rule key {key_kind:?}/{merchant:?}/{pattern:?}/{counterparty:?} \
+                 is neither a merchant nor a transfer rule"
+            ),
+        )),
+    }
+}
+
+/// A rule target as a discriminator and an identifier.
+pub(crate) fn rule_target(target: RuleTarget) -> (&'static str, String) {
+    match target {
+        RuleTarget::Account(id) => ("account", uuid(id.as_uuid())),
+        RuleTarget::Category(id) => ("category", uuid(id.as_uuid())),
+    }
+}
+
+/// Parses a stored rule target.
+pub(crate) fn parse_rule_target(
+    kind: &str,
+    id: &str,
+    table: &'static str,
+) -> Result<RuleTarget, StoreError> {
+    let key = parse_uuid(id, table)?;
+    match kind {
+        "account" => Ok(RuleTarget::Account(AccountId::from_uuid(key))),
+        "category" => Ok(RuleTarget::Category(CategoryId::from_uuid(key))),
+        other => Err(corrupt(
+            table,
+            format!("unknown rule target kind {other:?}"),
         )),
     }
 }

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use finance_core::{
-    Account, AccountId, Budget, Category, CategoryId, Currency, Ledger, Money, Posting,
+    Account, AccountId, Budget, Category, CategoryId, Currency, Ledger, Money, Posting, Rule,
     Transaction, TransactionId,
 };
 use rusqlite::{Connection, OptionalExtension, Row, params};
@@ -197,6 +197,9 @@ impl Store {
         for budget in self.budgets()? {
             ledger.set_budget(budget.category(), budget.amount(), budget.effective_from())?;
         }
+        for rule in self.rules()? {
+            ledger.add_rule(rule)?;
+        }
 
         Ok(ledger)
     }
@@ -226,6 +229,7 @@ impl Store {
         transaction.execute_batch("PRAGMA defer_foreign_keys = ON")?;
 
         transaction.execute("DELETE FROM budgets", [])?;
+        transaction.execute("DELETE FROM rules", [])?;
         transaction.execute("DELETE FROM transactions WHERE deleted_at IS NULL", [])?;
         transaction.execute("DELETE FROM categories", [])?;
         transaction.execute("DELETE FROM accounts", [])?;
@@ -234,6 +238,7 @@ impl Store {
         insert_categories(&transaction, ledger)?;
         insert_transactions(&transaction, ledger)?;
         insert_budgets(&transaction, ledger)?;
+        insert_rules(&transaction, ledger)?;
         write_currency(&transaction, self.currency)?;
 
         transaction.commit()?;
@@ -474,6 +479,31 @@ impl Store {
 
         Ok(budgets)
     }
+
+    fn rules(&self) -> Result<Vec<Rule>, StoreError> {
+        let mut statement = self.connection.prepare(
+            "SELECT key_kind, merchant, pattern, counterparty, target_kind, target_id
+             FROM rules ORDER BY key_kind, merchant, pattern, counterparty",
+        )?;
+        let rows: Vec<RawRule> = statement
+            .query_map([], RawRule::from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut rules = Vec::with_capacity(rows.len());
+        for row in rows {
+            let key = codec::parse_rule_key(
+                &row.key_kind,
+                &row.merchant,
+                &row.pattern,
+                &row.counterparty,
+                "rules",
+            )?;
+            let target = codec::parse_rule_target(&row.target_kind, &row.target_id, "rules")?;
+            rules.push(Rule::new(key, target));
+        }
+
+        Ok(rules)
+    }
 }
 
 /// Reads the currency recorded in the dataset, if it has one yet.
@@ -618,6 +648,28 @@ fn insert_budgets(connection: &Connection, ledger: &Ledger) -> Result<(), StoreE
     Ok(())
 }
 
+fn insert_rules(connection: &Connection, ledger: &Ledger) -> Result<(), StoreError> {
+    let mut insert = connection.prepare(
+        "INSERT INTO rules (key_kind, merchant, pattern, counterparty, target_kind, target_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+    )?;
+
+    for rule in ledger.rules() {
+        let (key_kind, merchant, pattern, counterparty) = codec::rule_key(rule.key());
+        let (target_kind, target_id) = codec::rule_target(rule.target());
+        insert.execute(params![
+            key_kind,
+            merchant,
+            pattern,
+            counterparty,
+            target_kind,
+            target_id,
+        ])?;
+    }
+
+    Ok(())
+}
+
 /// A row exactly as SQLite returns it, before any interpretation.
 ///
 /// Naming the shape keeps column order in one place and stops the conversion
@@ -716,6 +768,28 @@ impl RawBudget {
             category: row.get(0)?,
             period: row.get(1)?,
             minor: row.get(2)?,
+        })
+    }
+}
+
+struct RawRule {
+    key_kind: String,
+    merchant: String,
+    pattern: String,
+    counterparty: String,
+    target_kind: String,
+    target_id: String,
+}
+
+impl RawRule {
+    fn from_row(row: &Row<'_>) -> rusqlite::Result<Self> {
+        Ok(Self {
+            key_kind: row.get(0)?,
+            merchant: row.get(1)?,
+            pattern: row.get(2)?,
+            counterparty: row.get(3)?,
+            target_kind: row.get(4)?,
+            target_id: row.get(5)?,
         })
     }
 }

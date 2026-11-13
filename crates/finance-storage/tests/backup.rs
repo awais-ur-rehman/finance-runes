@@ -97,7 +97,7 @@ fn a_backup_is_one_self_contained_file() {
         .expect("the backup is written");
 
     assert_eq!(backup.path(), path.as_path());
-    assert_eq!(backup.schema_version(), 2);
+    assert_eq!(backup.schema_version(), 3);
     assert_eq!(backup.created_at(), moment(14));
     assert!(
         !directory.path().join("copy.db-wal").exists(),
@@ -145,12 +145,12 @@ fn backups_are_kept_to_ten_and_the_oldest_go_first() {
     assert_eq!(names.len(), KEEP_BACKUPS);
     assert_eq!(
         names.first().expect("ten backups remain"),
-        "finance-20261112T020000Z-v2.db",
+        "finance-20261112T020000Z-v3.db",
         "the two oldest were pruned"
     );
     assert_eq!(
         names.last().expect("ten backups remain"),
-        "finance-20261112T110000Z-v2.db"
+        "finance-20261112T110000Z-v3.db"
     );
 }
 
@@ -226,7 +226,7 @@ fn restoring_replaces_the_dataset() {
     }
 
     let version = restore(&backup_path, &dataset).expect("the backup is restorable");
-    assert_eq!(version, 2);
+    assert_eq!(version, 3);
 
     assert!(
         !directory.path().join("dataset.restore").exists(),
@@ -266,7 +266,7 @@ fn a_newer_backup_is_refused_and_the_dataset_is_untouched() {
         error,
         StoreError::UnsupportedSchema {
             found: 99,
-            supported: 2
+            supported: 3
         }
     ));
 

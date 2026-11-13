@@ -6,7 +6,8 @@
 
 use finance_core::{
     Account, AccountId, AccountKind, Category, CategoryId, CategoryKind, Currency, Ledger, Money,
-    Transaction, TransactionId, TransactionSource, YearMonth,
+    Rule, RuleKey, RuleTarget, Transaction, TransactionId, TransactionSource, TransferPattern,
+    YearMonth,
 };
 use finance_storage::{Store, StoreError};
 use tempfile::TempDir;
@@ -150,6 +151,19 @@ fn fixture() -> Ledger {
         .expect("a revision is allowed");
 
     ledger
+        .add_rule(Rule::new(
+            RuleKey::merchant("Sample Cafe").expect("the name is not blank"),
+            RuleTarget::Category(category(2)),
+        ))
+        .expect("the category exists");
+    ledger
+        .add_rule(Rule::new(
+            RuleKey::transfer(TransferPattern::peer_transfer(Some("Sample Holder"))),
+            RuleTarget::Account(account(2)),
+        ))
+        .expect("the account exists");
+
+    ledger
 }
 
 fn dataset(directory: &TempDir) -> std::path::PathBuf {
@@ -164,7 +178,7 @@ fn an_empty_dataset_loads_an_empty_ledger() {
         store.load().expect("the dataset loads"),
         Ledger::new(Currency::PKR)
     );
-    assert_eq!(store.schema_version().expect("the version reads"), 2);
+    assert_eq!(store.schema_version().expect("the version reads"), 3);
     assert_eq!(store.currency(), Currency::PKR);
 }
 
@@ -182,7 +196,7 @@ fn a_ledger_survives_a_round_trip() {
     let store = Store::open(&path, Currency::PKR).expect("the dataset reopens");
     let loaded = store.load().expect("the dataset loads");
     assert_eq!(loaded, ledger);
-    assert_eq!(store.schema_version().expect("the version reads"), 2);
+    assert_eq!(store.schema_version().expect("the version reads"), 3);
     assert_eq!(
         loaded
             .transaction(transaction(2))
@@ -316,13 +330,14 @@ fn a_version_one_dataset_is_migrated_to_provenance() {
     let store = Store::open(&path, Currency::PKR).expect("the old dataset opens");
     assert_eq!(
         store.schema_version().expect("the version reads"),
-        2,
-        "opening the file applied the provenance migration"
+        3,
+        "opening the file applied every later migration"
     );
 
     let loaded = store.load().expect("the migrated dataset loads");
     assert_eq!(loaded.accounts().count(), 1, "no account was lost");
     assert_eq!(loaded.transactions().count(), 1, "no transaction was lost");
+    assert_eq!(loaded.rules().count(), 0, "the file taught no rules");
     assert_eq!(
         loaded
             .transaction(transaction(1))
@@ -337,6 +352,64 @@ fn a_version_one_dataset_is_migrated_to_provenance() {
             .expect("the account exists"),
         pkr(-125_000),
         "the posting amounts are unchanged"
+    );
+}
+
+#[test]
+fn a_version_two_dataset_gains_the_rules_table() {
+    let directory = TempDir::new().expect("a temp directory");
+    let path = dataset(&directory);
+
+    // A v2 dataset is a v3 one without the rules table: the columns v2 added
+    // stay, only the last migration is undone.
+    let mut ledger = fixture();
+    let keys: Vec<RuleKey> = ledger.rules().map(|rule| rule.key().clone()).collect();
+    for key in keys {
+        ledger.remove_rule(&key);
+    }
+    {
+        let mut store = Store::open(&path, Currency::PKR).expect("the dataset opens");
+        store.save(&ledger).expect("the ledger is valid");
+    }
+    {
+        let raw = rusqlite::Connection::open(&path).expect("the file is a database");
+        raw.execute_batch(
+            "DROP TABLE rules;
+             DELETE FROM schema_migrations WHERE version = 3;",
+        )
+        .expect("the v2 shape is written");
+    }
+
+    let mut store = Store::open(&path, Currency::PKR).expect("the v2 dataset opens");
+    assert_eq!(
+        store.schema_version().expect("the version reads"),
+        3,
+        "opening the file applied the rules migration"
+    );
+    assert_eq!(
+        store.load().expect("the migrated dataset loads"),
+        ledger,
+        "every other table came through untouched"
+    );
+
+    let key = RuleKey::merchant("Sample Cafe").expect("the name is not blank");
+    let mut loaded = store.load().expect("the dataset loads");
+    loaded
+        .add_rule(Rule::new(key.clone(), RuleTarget::Category(category(2))))
+        .expect("the category exists");
+    store
+        .save(&loaded)
+        .expect("the migrated table accepts a rule");
+
+    assert_eq!(
+        Store::open(&path, Currency::PKR)
+            .expect("the dataset reopens")
+            .load()
+            .expect("the dataset loads")
+            .rule(&key)
+            .expect("the rule was written")
+            .target(),
+        RuleTarget::Category(category(2))
     );
 }
 
@@ -526,7 +599,7 @@ fn a_newer_schema_is_refused() {
         error,
         StoreError::UnsupportedSchema {
             found: 99,
-            supported: 2
+            supported: 3
         }
     ));
 }

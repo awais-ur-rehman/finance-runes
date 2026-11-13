@@ -88,8 +88,37 @@ ALTER TABLE transactions ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'
 ALTER TABLE transactions ADD COLUMN source_profile TEXT;
 "#;
 
+/// Remembered classification rules (FR-033).
+///
+/// A rule is keyed on the value the importer derived, never on a description,
+/// and the key is the identity: re-teaching a row replaces the row. SQLite
+/// cannot make a composite primary key out of nullable columns without letting
+/// duplicates through, so an absent part of the key is an empty string and the
+/// `CHECK` keeps the two key shapes apart. A merchant name is never blank and a
+/// counterparty is blank only when the description named nobody, so the sentinel
+/// cannot collide with a real value.
+const V3: &str = r#"
+CREATE TABLE rules (
+    key_kind     TEXT NOT NULL CHECK (key_kind IN ('merchant', 'transfer')),
+    merchant     TEXT NOT NULL DEFAULT '',
+    pattern      TEXT NOT NULL DEFAULT '',
+    counterparty TEXT NOT NULL DEFAULT '',
+    target_kind  TEXT NOT NULL CHECK (target_kind IN ('category', 'account')),
+    target_id    TEXT NOT NULL,
+    PRIMARY KEY (key_kind, merchant, pattern, counterparty),
+    CHECK (
+        (key_kind = 'merchant'
+            AND merchant <> '' AND pattern = '' AND counterparty = '')
+        OR (key_kind = 'transfer'
+            AND merchant = ''
+            AND pattern IN ('cash_withdrawal', 'peer_transfer')
+            AND (pattern = 'peer_transfer' OR counterparty = ''))
+    )
+) STRICT;
+"#;
+
 /// Every migration, oldest first. The index plus one is the schema version.
-const MIGRATIONS: &[&str] = &[V1, V2];
+const MIGRATIONS: &[&str] = &[V1, V2, V3];
 
 /// The version this build writes and the highest it can open.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;
