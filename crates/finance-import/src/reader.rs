@@ -81,7 +81,15 @@ pub fn parse(
         }
     }
 
-    Statement::assemble(currency, header_line, data_rows, rows, opening, issues)
+    Statement::assemble(
+        currency,
+        profile.name().to_owned(),
+        header_line,
+        data_rows,
+        rows,
+        opening,
+        issues,
+    )
 }
 
 /// A row that became something usable.

@@ -17,3 +17,6 @@ time.workspace = true
 # a bank description may contain any of them. The crate is pure Rust and does no
 # I/O of its own, so it does not weaken the layering rule.
 csv.workspace = true
+
+[dev-dependencies]
+uuid.workspace = true

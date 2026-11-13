@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 
-use finance_core::Money;
+use finance_core::{AccountId, Money, PostingTarget, Transaction};
 use time::Date;
 
 use crate::statement::StatementRow;
@@ -56,6 +56,40 @@ impl DuplicateKey {
             row.description(),
             row.instrument(),
         )
+    }
+
+    /// The key for a transaction already in the ledger, seen from `account`.
+    ///
+    /// Returns `None` when the transaction does not post to `account` or has no
+    /// text to compare. The description is the raw statement text the import
+    /// kept as the note.
+    ///
+    /// This ignores reference numbers, because the ledger does not store the
+    /// instrument number. Both sides of a comparison therefore use the same
+    /// rule: a cheque row is matched by date, amount and text on re-import.
+    pub fn for_transaction(transaction: &Transaction, account: AccountId) -> Option<Self> {
+        let posting = transaction
+            .postings()
+            .iter()
+            .find(|posting| posting.target() == PostingTarget::Account(account))?;
+        let description = transaction.note().or_else(|| transaction.payee())?;
+        Some(Self::comparison(
+            transaction.date(),
+            posting.amount(),
+            description,
+        ))
+    }
+
+    /// The fallback key, ignoring any reference number.
+    ///
+    /// Used to compare a row with a transaction already in the ledger, where the
+    /// instrument number is no longer available.
+    pub fn comparison(date: Date, amount: Money, description: &str) -> Self {
+        Self::Fallback {
+            date,
+            amount,
+            description: text::normalise(description),
+        }
     }
 
     /// The key for an existing transaction, given what the import stored.

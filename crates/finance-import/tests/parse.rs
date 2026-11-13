@@ -62,6 +62,17 @@ fn the_confirmed_statement_parses_to_the_documented_totals() {
 }
 
 #[test]
+fn the_statement_records_the_profile_that_read_it() {
+    let statement = parse_fixture();
+
+    assert_eq!(
+        statement.profile(),
+        "bank-statement-debit-credit",
+        "an imported row can say which layout produced it (FR-036)"
+    );
+}
+
+#[test]
 fn the_preview_reports_the_final_balance_and_the_suspected_transfers() {
     let preview = parse_fixture().preview();
 

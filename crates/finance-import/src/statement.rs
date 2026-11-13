@@ -193,6 +193,7 @@ impl StatementRow {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Statement {
     currency: Currency,
+    profile: String,
     header_line: usize,
     data_rows: usize,
     rows: Vec<StatementRow>,
@@ -210,6 +211,7 @@ impl Statement {
     /// cannot disagree about totals or breaks.
     pub(crate) fn assemble(
         currency: Currency,
+        profile: String,
         header_line: usize,
         data_rows: usize,
         rows: Vec<StatementRow>,
@@ -224,6 +226,7 @@ impl Statement {
 
         Ok(Self {
             currency,
+            profile,
             header_line,
             data_rows,
             rows,
@@ -240,6 +243,13 @@ impl Statement {
     /// The currency the statement was parsed into.
     pub const fn currency(&self) -> Currency {
         self.currency
+    }
+
+    /// The name of the profile the file was read with.
+    ///
+    /// Kept so an imported transaction can record where it came from (FR-036).
+    pub fn profile(&self) -> &str {
+        &self.profile
     }
 
     /// The 1-based line of the header row, which is not always line 1.

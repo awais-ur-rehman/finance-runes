@@ -1,5 +1,6 @@
-use finance_core::{Currency, Money};
+use finance_core::{AccountId, CategoryId, Currency, Money, Transaction, TransactionId};
 use time::{Date, Month};
+use uuid::Uuid;
 
 use super::{DuplicateKey, ReferenceKind, within};
 use crate::statement::{Flow, StatementRow};
@@ -117,5 +118,71 @@ fn rows_with_reference_numbers_are_matched_by_them() {
         within(&rows).len(),
         1,
         "the same instrument is the same transaction even if the text differs"
+    );
+}
+
+fn account(value: u128) -> AccountId {
+    AccountId::from_uuid(Uuid::from_u128(value))
+}
+
+#[test]
+fn a_recorded_transaction_matches_the_row_it_was_imported_from() {
+    let bank = account(1);
+    let transaction = Transaction::expense(
+        TransactionId::from_uuid(Uuid::from_u128(1)),
+        date(12),
+        bank,
+        CategoryId::from_uuid(Uuid::from_u128(1)),
+        pkr(84_000),
+    )
+    .expect("the amount is positive")
+    .with_note("POS SALE - VISA AT SAMPLE CAFE KARACHI PK");
+
+    let key = DuplicateKey::for_transaction(&transaction, bank).expect("it posts to the account");
+
+    assert_eq!(
+        key,
+        DuplicateKey::comparison(
+            date(12),
+            pkr(-84_000),
+            "POS SALE - VISA AT SAMPLE CAFE KARACHI PK"
+        ),
+        "the stored note is the description the row carries"
+    );
+}
+
+#[test]
+fn a_recorded_transaction_on_another_account_is_not_a_match() {
+    let bank = account(1);
+    let cash = account(2);
+    let transaction = Transaction::expense(
+        TransactionId::from_uuid(Uuid::from_u128(1)),
+        date(12),
+        bank,
+        CategoryId::from_uuid(Uuid::from_u128(1)),
+        pkr(84_000),
+    )
+    .expect("the amount is positive")
+    .with_note("POS SALE - VISA AT SAMPLE CAFE KARACHI PK");
+
+    assert_eq!(DuplicateKey::for_transaction(&transaction, cash), None);
+}
+
+#[test]
+fn a_recorded_transaction_without_text_is_not_a_match() {
+    let bank = account(1);
+    let transaction = Transaction::expense(
+        TransactionId::from_uuid(Uuid::from_u128(1)),
+        date(12),
+        bank,
+        CategoryId::from_uuid(Uuid::from_u128(1)),
+        pkr(84_000),
+    )
+    .expect("the amount is positive");
+
+    assert_eq!(
+        DuplicateKey::for_transaction(&transaction, bank),
+        None,
+        "there is nothing to compare, and a wrong match would skip a real row"
     );
 }

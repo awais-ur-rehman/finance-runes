@@ -15,8 +15,16 @@ fn date(day: u8) -> Date {
 #[test]
 fn a_statement_with_only_an_opening_balance_reports_it_as_the_final_balance() {
     let opening = OpeningBalance::new(2, date(12), pkr(125_000));
-    let statement = Statement::assemble(Currency::PKR, 1, 1, Vec::new(), Some(opening), Vec::new())
-        .expect("there are no totals to overflow");
+    let statement = Statement::assemble(
+        Currency::PKR,
+        "test".to_owned(),
+        1,
+        1,
+        Vec::new(),
+        Some(opening),
+        Vec::new(),
+    )
+    .expect("there are no totals to overflow");
 
     let preview = statement.preview();
 
@@ -29,8 +37,16 @@ fn a_statement_with_only_an_opening_balance_reports_it_as_the_final_balance() {
 #[test]
 fn an_issue_makes_the_preview_unclean() {
     let issues = vec![RowIssue::new(3, RowProblem::NoAmount)];
-    let statement =
-        Statement::assemble(Currency::PKR, 1, 1, Vec::new(), None, issues).expect("no overflow");
+    let statement = Statement::assemble(
+        Currency::PKR,
+        "test".to_owned(),
+        1,
+        1,
+        Vec::new(),
+        None,
+        issues,
+    )
+    .expect("no overflow");
 
     let preview = statement.preview();
 
