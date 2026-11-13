@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use finance_core::{
     AccountId, Currency, Ledger, Money, PostingTarget, Transaction, TransactionId, TransactionKind,
+    TransactionSource,
 };
 use finance_import::{DuplicateKey, Statement, StatementRow, TransferHint};
 
@@ -351,12 +352,15 @@ impl ImportSession {
 
         let opening = match self.statement.opening_balance() {
             Some(opening) if self.records_opening => {
-                transactions.push(Transaction::opening(
-                    next_id(),
-                    opening.date(),
-                    self.account,
-                    opening.amount(),
-                )?);
+                transactions.push(
+                    Transaction::opening(
+                        next_id(),
+                        opening.date(),
+                        self.account,
+                        opening.amount(),
+                    )?
+                    .with_source(self.source()),
+                );
                 Some(opening.amount())
             }
             _ => None,
@@ -368,7 +372,13 @@ impl ImportSession {
                 continue;
             };
 
-            transactions.push(build(next_id(), self.account, &row.row, entry)?);
+            transactions.push(build(
+                next_id(),
+                self.account,
+                &row.row,
+                entry,
+                self.statement.profile(),
+            )?);
             posted += 1;
             if matches!(entry, Entry::Transfer(_)) {
                 transfers += 1;
@@ -392,6 +402,13 @@ impl ImportSession {
             money(incoming, currency)?,
             money(outgoing, currency)?,
         ))
+    }
+
+    /// The provenance every row this session writes carries (FR-036).
+    fn source(&self) -> TransactionSource {
+        TransactionSource::Imported {
+            profile: self.statement.profile().to_owned(),
+        }
     }
 
     /// Recomputes every suggestion and fills in rows the rules decide.
@@ -460,6 +477,7 @@ fn build(
     account: AccountId,
     row: &StatementRow,
     entry: Entry,
+    profile: &str,
 ) -> Result<Transaction, SessionError> {
     let amount = row.flow().amount();
     let transaction = match entry {
@@ -477,7 +495,10 @@ fn build(
                 Transaction::transfer(id, row.date(), account, other, amount)?
             }
         }
-    };
+    }
+    .with_source(TransactionSource::Imported {
+        profile: profile.to_owned(),
+    });
 
     Ok(match row.merchant() {
         Some(merchant) => transaction

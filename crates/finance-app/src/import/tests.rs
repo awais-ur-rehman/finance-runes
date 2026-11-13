@@ -7,7 +7,7 @@
 
 use finance_core::{
     Account, AccountId, AccountKind, Category, CategoryId, CategoryKind, Currency, Ledger,
-    LedgerError, Money, Transaction, TransactionId,
+    LedgerError, Money, Transaction, TransactionId, TransactionKind, TransactionSource,
 };
 use finance_import::{Profile, parse};
 use time::{Date, Month};
@@ -387,6 +387,20 @@ fn committing_writes_the_rows_and_the_opening_balance() {
     assert_eq!(report.total_out(), pkr(404_050));
 
     assert_eq!(fixture.ledger.transactions().count(), 5);
+
+    let opening = fixture
+        .ledger
+        .transactions()
+        .find(|transaction| transaction.kind() == TransactionKind::Opening)
+        .expect("the opening balance was written");
+    assert_eq!(
+        opening.source(),
+        &TransactionSource::Imported {
+            profile: "bank-statement-debit-credit".to_owned()
+        },
+        "the opening balance came from the file too"
+    );
+
     assert_eq!(
         fixture
             .ledger
@@ -434,6 +448,13 @@ fn an_imported_row_keeps_the_bank_description_and_the_merchant() {
     );
     assert_eq!(cafe.date(), day(12));
     assert_eq!(cafe.amount(), pkr(84_000));
+    assert_eq!(
+        cafe.source(),
+        &TransactionSource::Imported {
+            profile: "bank-statement-debit-credit".to_owned()
+        },
+        "an imported row says where it came from (FR-036)"
+    );
 }
 
 #[test]
