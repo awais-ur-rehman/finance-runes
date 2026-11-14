@@ -53,6 +53,6 @@ Rules:
 - [ ] Benchmark WAL + `synchronous` settings against NFR-010/NFR-014.
 - [x] Write the schema-version and migration harness before the first table.
 - [x] Back up with `VACUUM INTO`, keeping ten, and validate a restore before replacing anything.
-- [ ] Add a crash-injection test that kills the process during a write loop. The rollback path is covered by a competing-writer test; a real kill is still missing.
+- [x] Add a crash-injection test that kills the process during a write loop (`tests/crash.rs`); the competing-writer test covers the rollback path without a kill.
 - [x] Document the on-disk layout in the storage README so a user can recover data by hand.
 - [x] Take the pre-migration backup (FR-084). Schema v3 now exists, so there are real upgrades to take it before.
