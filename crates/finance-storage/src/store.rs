@@ -1,7 +1,7 @@
 //! The SQLite-backed store.
 
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use finance_core::{
     Account, AccountId, Budget, Category, CategoryId, Currency, Ledger, Money, Posting, Rule,
@@ -27,6 +27,7 @@ pub struct Store {
     connection: Connection,
     currency: Currency,
     dirty: bool,
+    migration_backup: Option<PathBuf>,
 }
 
 impl Store {
@@ -41,7 +42,8 @@ impl Store {
     /// [`StoreError::UnsupportedSchema`] if it was written by a newer build, and
     /// [`StoreError::CurrencyMismatch`] if it holds another currency.
     pub fn open(path: impl AsRef<Path>, currency: Currency) -> Result<Self, StoreError> {
-        Self::from_connection(Connection::open(path)?, currency)
+        let path = path.as_ref();
+        Self::from_connection(Connection::open(path)?, currency, Some(path))
     }
 
     /// Opens an empty dataset held only in memory, for tests and previews.
@@ -52,11 +54,15 @@ impl Store {
     /// [`StoreError::UnsupportedSchema`] or [`StoreError::CurrencyMismatch`] as
     /// [`Self::open`] does.
     pub fn open_in_memory(currency: Currency) -> Result<Self, StoreError> {
-        Self::from_connection(Connection::open_in_memory()?, currency)
+        Self::from_connection(Connection::open_in_memory()?, currency, None)
     }
 
-    fn from_connection(mut connection: Connection, currency: Currency) -> Result<Self, StoreError> {
-        schema::prepare(&mut connection)?;
+    fn from_connection(
+        mut connection: Connection,
+        currency: Currency,
+        dataset: Option<&Path>,
+    ) -> Result<Self, StoreError> {
+        let migration_backup = schema::prepare(&mut connection, dataset)?;
 
         match read_currency(&connection)? {
             Some(stored) if stored != currency => Err(StoreError::CurrencyMismatch {
@@ -67,6 +73,7 @@ impl Store {
                 connection,
                 currency,
                 dirty: false,
+                migration_backup,
             }),
             None => {
                 write_currency(&connection, currency)?;
@@ -74,9 +81,19 @@ impl Store {
                     connection,
                     currency,
                     dirty: false,
+                    migration_backup,
                 })
             }
         }
+    }
+
+    /// The copy taken before this open upgraded the dataset, if it upgraded one
+    /// (FR-084).
+    ///
+    /// The app shows it as "your data was upgraded; a copy from before is at
+    /// …", and it is the file a restore would use if the upgrade was wrong.
+    pub fn migration_backup(&self) -> Option<&Path> {
+        self.migration_backup.as_deref()
     }
 
     /// The currency this dataset is held in.

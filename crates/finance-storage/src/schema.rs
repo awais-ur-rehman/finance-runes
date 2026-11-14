@@ -6,9 +6,17 @@
 //! build does not know what the extra columns mean, and guessing would write
 //! over data it cannot see (NFR-032).
 //!
+//! Before an upgrade the dataset is copied to `<name>.pre-v<version>.db` beside
+//! it, so an upgrade that turns out to be wrong is a file rename away from being
+//! undone (FR-084). The copy is named after the version it protects rather than
+//! the time it was taken, so there is one per upgrade and a repeated attempt
+//! replaces it instead of filling the directory.
+//!
 //! Money is stored as integer minor units plus a currency code, never as a
 //! float (ADR-0003). Tables are `STRICT`, so SQLite rejects a text value in an
 //! integer column instead of silently converting it.
+
+use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, params};
 use time::OffsetDateTime;
@@ -123,14 +131,90 @@ const MIGRATIONS: &[&str] = &[V1, V2, V3];
 /// The version this build writes and the highest it can open.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;
 
-/// Opens a connection for use: durability settings, foreign keys, migrations.
-pub(crate) fn prepare(connection: &mut Connection) -> Result<(), StoreError> {
+/// Opens a connection for use: durability settings, foreign keys, a
+/// pre-migration copy, then migrations.
+///
+/// `dataset` is the file behind `connection`, or `None` for an in-memory
+/// dataset, which has nothing to copy. Returns the copy that was taken, if the
+/// open upgraded the file (FR-084).
+pub(crate) fn prepare(
+    connection: &mut Connection,
+    dataset: Option<&Path>,
+) -> Result<Option<PathBuf>, StoreError> {
     // WAL survives a crash mid-write and lets a reader run during a write.
     // `FULL` costs one fsync per commit, which is irrelevant at this data size
     // and buys the strongest durability SQLite offers (ADR-0004, NFR-003).
     connection.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()))?;
     connection.execute_batch("PRAGMA foreign_keys = ON; PRAGMA synchronous = FULL;")?;
-    migrate(connection)
+
+    let copy = match dataset {
+        Some(path) => backup_before_migration(connection, path)?,
+        None => None,
+    };
+    migrate(connection)?;
+
+    Ok(copy)
+}
+
+/// Copies the dataset before a migration changes it (FR-084).
+///
+/// The copy is a `VACUUM INTO` snapshot switched out of WAL mode, so it is one
+/// self-contained file. A copy from an earlier attempt is replaced: migrations
+/// are transactional, so the dataset is still at the old version here, and a
+/// fresh copy is at least as good as a stale one.
+fn backup_before_migration(
+    connection: &Connection,
+    dataset: &Path,
+) -> Result<Option<PathBuf>, StoreError> {
+    let version = current_version(connection)?;
+    if version == 0 || version >= SCHEMA_VERSION {
+        return Ok(None);
+    }
+
+    let target = pre_migration_path(dataset, version)?;
+    let staging = target.with_extension("partial");
+    if staging.exists() {
+        std::fs::remove_file(&staging)?;
+    }
+
+    let written = copy_into(connection, &staging).and_then(|()| {
+        switch_to_rollback_journal(&staging)?;
+        std::fs::rename(&staging, &target)?;
+        Ok(())
+    });
+    if written.is_err() {
+        // A half-written copy must not be mistaken for a usable backup.
+        let _ = std::fs::remove_file(&staging);
+    }
+    written?;
+
+    Ok(Some(target))
+}
+
+/// Where the copy taken before upgrading from `version` is written.
+fn pre_migration_path(dataset: &Path, version: u32) -> Result<PathBuf, StoreError> {
+    let name = dataset
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .ok_or_else(|| StoreError::InvalidPath(dataset.to_path_buf()))?;
+    Ok(dataset.with_file_name(format!("{name}.pre-v{version}.db")))
+}
+
+/// SQLite's own consistent copy: it reads through the write-ahead log, so the
+/// copy is a complete dataset rather than a byte-level snapshot (ADR-0004).
+fn copy_into(connection: &Connection, target: &Path) -> Result<(), StoreError> {
+    let text = target
+        .to_str()
+        .ok_or_else(|| StoreError::InvalidPath(target.to_path_buf()))?;
+    connection.execute("VACUUM INTO ?1", params![text])?;
+    Ok(())
+}
+
+/// Leaves the copy with no write-ahead log of its own to lose.
+fn switch_to_rollback_journal(path: &Path) -> Result<(), StoreError> {
+    let copy = Connection::open(path)?;
+    copy.query_row("PRAGMA journal_mode = DELETE", [], |_| Ok(()))?;
+    Ok(())
 }
 
 /// The schema version recorded in the dataset, or zero for an empty file.
