@@ -120,7 +120,7 @@ Start at [`docs/README.md`](docs/README.md) for the full index. The short versio
 | 1 | Requirement gathering → filled `docs/requirements/` | ✅ done (5 sessions) |
 | 2 | Architecture sign-off (ADR-0004), workspace created | ✅ done |
 | 3 | `finance-core`: money, accounts, transactions, categories, budgets | ✅ done |
-| 4 | Storage adapter, migrations, backup/restore | 🔄 migrations, backups, restore and CSV export done; the pre-migration backup pending |
+| 4 | Storage adapter, migrations, backup/restore | ✅ done |
 | 5 | CSV import pipeline and review screen | 🔄 parser, preview, hints, the review use case, import provenance and remembered-rule persistence done; Rune screen pending |
 | 6 | Rune UI: entry, register, month view | ⬜ |
 | 7 | Insights engine and month-end summary | ⬜ |

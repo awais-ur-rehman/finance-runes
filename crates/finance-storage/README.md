@@ -1,6 +1,6 @@
 # finance-storage
 
-**Status:** in progress — schema v3, migrations, round-trip, soft delete, backup, restore and CSV export done; the pre-migration backup is pending
+**Status:** in progress — schema v3, migrations, round-trip, soft delete, backup, restore, CSV export and the pre-migration backup done
 
 Persistence, and nothing else. Maps domain objects to rows and back, applies migrations, produces consistent backups.
 
@@ -13,6 +13,7 @@ Persistence, and nothing else. Maps domain objects to rows and back, applies mig
 - `backup_to` / `backup_into` / `prune` — `VACUUM INTO` copies, named from their timestamp and schema version, ten kept (FR-080, FR-081, FR-086).
 - `restore` — validates version and integrity, then swaps the file through a temporary copy (FR-082).
 - `export_into` — every table to plain CSV files plus a manifest, in one new directory (FR-083).
+- `migration_backup` — the copy taken before this open upgraded the dataset, if it did (FR-084).
 - `integrity_check` — reports problems and changes nothing (FR-085).
 - `needs_backup` — whether anything was written since the last backup, so exit can skip an empty one.
 
@@ -21,6 +22,8 @@ Persistence, and nothing else. Maps domain objects to rows and back, applies mig
 One `dataset.db` per dataset. While the app has it open, SQLite keeps `dataset.db-wal` and `dataset.db-shm` beside it; those files belong to the dataset, so copy the directory rather than the `.db` alone, or close the app first.
 
 Backups are named `finance-YYYYMMDDTHHMMSSZ-v<schema>.db`, so a directory of them sorts by age and shows the schema version without opening anything. Each is a single file in rollback-journal mode: no sidecars, readable by any SQLite client.
+
+Before an upgrade, `open` copies the dataset to `<name>.pre-v<version>.db` beside it — a `VACUUM INTO` snapshot of the data as it was, switched out of WAL mode (FR-084). The copy is named after the version it protects, so there is one per upgrade and a repeated attempt replaces it rather than filling the directory. If the upgrade is ever wrong, the recovery is to rename the copy over the dataset. An in-memory dataset has nothing to copy, and a dataset already at the current version is not copied.
 
 | Table | Contents |
 | --- | --- |
@@ -63,6 +66,7 @@ The layout is versioned by `FORMAT_VERSION` and does not depend on SQLite: the d
 - Schema definitions and the migration runner, versioned and forward-only.
 - Repository implementations behind traits defined by the application layer.
 - Consistent backup (`VACUUM INTO`), restore with version and integrity checks.
+- The pre-migration copy and the migration runner that takes it first (FR-084).
 - The documented CSV export, independent of the engine (FR-083).
 - Integrity verification and the on-disk layout documentation.
 
